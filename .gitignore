@@ -1,3 +1,4 @@
 *.zip
 *.pth
 /data_250429
+/filtered_data
