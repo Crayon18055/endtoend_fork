@@ -18,7 +18,7 @@ config_dict = easydict.EasyDict({
     "num_patch": 1600,
     "model_dim": 768,
     "ffn_dim": 1024,
-    "attention_heads": 6,
+    "attention_heads": 4,
     "attention_dropout": 0.0,
     "dropout": 0.2,
     "encoder_layers": 4,
@@ -59,7 +59,9 @@ def create_small_dataset(data_dir, output_dir, num_samples=128):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     small_data_dir = os.path.join(output_dir, timestamp)
     os.makedirs(small_data_dir, exist_ok=True)
-    small_txt_path = os.path.join(small_data_dir, "small_data.txt")
+    os.makedirs(os.path.join(small_data_dir, "images"), exist_ok=True)
+    os.makedirs(os.path.join(small_data_dir, "txt_files"), exist_ok=True)
+    small_txt_path = os.path.join(small_data_dir,"txt_files", "small_data.txt")
 
     # 获取所有筛选后的 .txt 文件
     txt_files = [os.path.join(data_dir, "txt_files", f) for f in os.listdir(os.path.join(data_dir, "txt_files")) if f.endswith('.txt')]
@@ -82,7 +84,7 @@ def create_small_dataset(data_dir, output_dir, num_samples=128):
     image_files = selected_rows.iloc[:, 6].astype(int).astype(str) + ".jpg"
     for img_file in image_files:
         src_img_path = os.path.join(data_dir, "images", img_file)
-        dst_img_path = os.path.join(small_data_dir, img_file)
+        dst_img_path = os.path.join(small_data_dir,"images", img_file)
         os.makedirs(os.path.dirname(dst_img_path), exist_ok=True)
         if os.path.exists(src_img_path):  # 确保图片存在
             copyfile(src_img_path, dst_img_path)
@@ -102,6 +104,13 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     print(f"Model initialized")
 
+    # 包装模型以支持多 GPU
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs")
+        model = nn.DataParallel(model, device_ids=[0, 1])  # 指定使用 GPU 0 和 GPU 1
+
+    model = model.to(device, dtype=torch.float32)
+
     # 定义损失函数和优化器
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
@@ -120,13 +129,18 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
     target_output_data = torch.tensor(target_output, dtype=torch.float32)
 
     # 对 target_output_data 进行归一化
+    # target_min = target_output_data.min(dim=0).values
+    # target_max = target_output_data.max(dim=0).values
+    target_min = -0.2
+    target_max = 0.2
+    target_output_data = (target_output_data - target_min) / (target_max - target_min)
     # max_values = target_output_data.max(dim=0).values
     # target_output_data = target_output_data / max_values
 
     # 加载图片
     images = []
     for img_file in image_files:
-        img_path = os.path.join(data_dir, img_file)
+        img_path = os.path.join(data_dir,"images", img_file)
         images.append(load_image(img_path))
     images = torch.cat(images)
 
@@ -182,6 +196,11 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
 
     # 保存最终模型权重
     final_checkpoint_path = os.path.join(save_dir, f"model_final_{os.path.basename(data_dir)}.pth")
+    os.mkdir(os.path.join(save_dir, "norm_params"), exist_ok=True)
+    norm_params_path = os.path.join(save_dir,"norm_params", f"norm_params_{os.path.basename(data_dir)}.pth")
+
+    torch.save({"target_min": target_min, "target_max": target_max}, norm_params_path)
+    print(f"Normalization parameters saved to {norm_params_path}")
     torch.save(model.state_dict(), final_checkpoint_path)
     print(f"Final model saved to {final_checkpoint_path}")
 
@@ -192,5 +211,5 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
 if __name__ == "__main__":
     data_dir = "filtered_data"  # 筛选后的数据目录
     output_dir = "smalldata"  # 小数据集保存目录
-    small_data_dir, small_txt_path = create_small_dataset(data_dir, output_dir)
-    train_pipeline(small_data_dir, small_txt_path, num_epochs=300, batch_size=16)
+    small_data_dir, small_txt_path = create_small_dataset(data_dir, output_dir, num_samples=256)
+    train_pipeline(small_data_dir, small_txt_path, num_epochs=300, batch_size=32)
