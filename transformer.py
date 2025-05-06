@@ -91,25 +91,25 @@ class PositionWiseFeedForward(nn.Module):
         return x + residual
 
 
-# class EmbeddingLidar(nn.Module):
+class EmbeddingLidar(nn.Module):
 
-#     def __init__(self, config):
-#         super().__init__()
-#         self.len_lidar = 720
-#         self.num_patch = config.num_patch
-#         self.dim_patch = self.len_lidar // self.num_patch 
-#         self.model_dim = config.model_dim
-#         self.dropout = config.dropout
-#         self.pos_embed = nn.Parameter(torch.randn(self.num_patch, self.model_dim))
+    def __init__(self, config):
+        super().__init__()
+        self.len_lidar = 720
+        self.num_patch = config.num_patch
+        self.dim_patch = self.len_lidar // self.num_patch 
+        self.model_dim = config.model_dim
+        self.dropout = config.dropout
+        self.pos_embed = nn.Parameter(torch.randn(self.num_patch, self.model_dim))
 
-#         self.linear = nn.Linear(self.dim_patch, self.model_dim)
+        self.linear = nn.Linear(self.dim_patch, self.model_dim)
 
-#     def forward(self, inputs):
-#         x = inputs.view([-1, self.num_patch, self.dim_patch])
-#         x = self.linear(x)
-#         x = x + self.pos_embed
-#         x = F.dropout(x, p=self.dropout, training=self.training)
-#         return x
+    def forward(self, inputs):
+        x = inputs.view([-1, self.num_patch, self.dim_patch])
+        x = self.linear(x)
+        x = x + self.pos_embed
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        return x
 
 
 class EmbeddingImage(nn.Module):

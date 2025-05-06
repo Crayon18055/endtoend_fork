@@ -18,11 +18,11 @@ config_dict = easydict.EasyDict({
     "num_patch": 1600,
     "model_dim": 768,
     "ffn_dim": 1024,
-    "attention_heads": 4,
+    "attention_heads": 6,
     "attention_dropout": 0.0,
     "dropout": 0.2,
-    "encoder_layers": 6,
-    "decoder_layers": 6,
+    "encoder_layers": 4,
+    "decoder_layers": 4,
 })
 
 # 加载图片并预处理
@@ -120,8 +120,8 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
     target_output_data = torch.tensor(target_output, dtype=torch.float32)
 
     # 对 target_output_data 进行归一化
-    max_values = target_output_data.max(dim=0).values
-    target_output_data = target_output_data / max_values
+    # max_values = target_output_data.max(dim=0).values
+    # target_output_data = target_output_data / max_values
 
     # 加载图片
     images = []
@@ -144,10 +144,10 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
     loss_history = []
     line, = ax.plot([], [], label="Loss")
     ax.legend()
-
+    model.train()
     # 持续训练
     for epoch in range(num_epochs):
-        model.train()
+        
         epoch_loss = 0
 
         for start_idx in range(0, len(images), batch_size):
@@ -157,7 +157,8 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
 
             # 前向传播
             output, _, _ = model(batch_images, batch_trg_data)
-
+            print("outout:", output)
+            print("target_output:", batch_target_output)
             # 计算损失
             loss = criterion(output, batch_target_output)
 
@@ -192,4 +193,4 @@ if __name__ == "__main__":
     data_dir = "filtered_data"  # 筛选后的数据目录
     output_dir = "smalldata"  # 小数据集保存目录
     small_data_dir, small_txt_path = create_small_dataset(data_dir, output_dir)
-    train_pipeline(small_data_dir, small_txt_path, num_epochs=100, batch_size=16)
+    train_pipeline(small_data_dir, small_txt_path, num_epochs=300, batch_size=16)
