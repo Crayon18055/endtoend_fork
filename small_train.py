@@ -11,7 +11,7 @@ from datetime import datetime
 import random
 import pandas as pd  # 用于读取和处理 .txt 文件
 from shutil import copyfile
-
+import signal
 # 配置
 config_dict = easydict.EasyDict({
     "input_dim": 768,
@@ -97,7 +97,7 @@ def create_small_dataset(data_dir, output_dir, num_samples=128):
 # 持续训练流程
 def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="checkpoints"):
     # 配置
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # 初始化模型
@@ -158,52 +158,64 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
     loss_history = []
     line, = ax.plot([], [], label="Loss")
     ax.legend()
+
+    # 捕获 Ctrl+C 信号
+    def save_and_exit(signum, frame):
+        print("\nTraining interrupted. Saving model...")
+        # 保存最终模型权重
+        final_checkpoint_path = os.path.join(save_dir, f"model_final_{os.path.basename(data_dir)}.pth")
+        os.makedirs(os.path.join(save_dir, "norm_params"), exist_ok=True)
+        norm_params_path = os.path.join(save_dir,"norm_params", f"norm_params_{os.path.basename(data_dir)}.pth")
+
+        torch.save({"target_min": target_min, "target_max": target_max}, norm_params_path)
+        print(f"Normalization parameters saved to {norm_params_path}")
+        torch.save(model.state_dict(), final_checkpoint_path)
+        print(f"Final model saved to {final_checkpoint_path}")
+        exit(0)
+
+    signal.signal(signal.SIGINT, save_and_exit)
     model.train()
-    # 持续训练
-    for epoch in range(num_epochs):
-        
-        epoch_loss = 0
 
-        for start_idx in range(0, len(images), batch_size):
-            batch_images = images[start_idx:start_idx + batch_size]
-            batch_trg_data = trg_data[start_idx:start_idx + batch_size]
-            batch_target_output = target_output_data[start_idx:start_idx + batch_size]
+    # 定义加权损失函数
+    def weighted_loss(output, target, weight1=1.0, weight2=1.0):
+        loss1 = weight1 * (output[:, 0] - target[:, 0])**2
+        loss2 = weight2 * (output[:, 1] - target[:, 1])**2
+        return torch.mean(loss1 + loss2)
 
-            # 前向传播
-            output, _, _ = model(batch_images, batch_trg_data)
-            print("outout:", output)
-            print("target_output:", batch_target_output)
-            # 计算损失
-            loss = criterion(output, batch_target_output)
+    # 修改训练循环
+    try:
+        for epoch in range(num_epochs):
+            epoch_loss = 0
 
-            # 反向传播和优化
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            for start_idx in range(0, len(images), batch_size):
+                batch_images = images[start_idx:start_idx + batch_size]
+                batch_trg_data = trg_data[start_idx:start_idx + batch_size]
+                batch_target_output = target_output_data[start_idx:start_idx + batch_size]
 
-            epoch_loss += loss.item()
+                # 前向传播
+                output, _, _ = model(batch_images, batch_trg_data)
 
-        # 打印当前 epoch 的损失
-        print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss}")
+                # 计算加权损失
+                loss = weighted_loss(output, batch_target_output, weight1=1.0, weight2=1.0)
 
-        # 更新 loss 历史
-        loss_history.append(epoch_loss)
-        line.set_xdata(range(len(loss_history)))
-        line.set_ydata(loss_history)
-        ax.set_xlim(0, num_epochs)
-        ax.set_ylim(0, max(loss_history) * 1.1)
-        plt.pause(0.01)
+                # 反向传播和优化
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-    # 保存最终模型权重
-    final_checkpoint_path = os.path.join(save_dir, f"model_final_{os.path.basename(data_dir)}.pth")
-    os.makedirs(os.path.join(save_dir, "norm_params"), exist_ok=True)
-    norm_params_path = os.path.join(save_dir,"norm_params", f"norm_params_{os.path.basename(data_dir)}.pth")
+                epoch_loss += loss.item()
 
-    torch.save({"target_min": target_min, "target_max": target_max}, norm_params_path)
-    print(f"Normalization parameters saved to {norm_params_path}")
-    torch.save(model.state_dict(), final_checkpoint_path)
-    print(f"Final model saved to {final_checkpoint_path}")
+            print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss}")
 
+            loss_history.append(epoch_loss)
+            line.set_xdata(range(len(loss_history)))
+            line.set_ydata(loss_history)
+            ax.set_xlim(0, num_epochs)
+            ax.set_ylim(0, max(loss_history) * 1.1)
+            plt.pause(0.01)
+    except KeyboardInterrupt:
+        save_and_exit(None, None)
+    save_and_exit(None, None)
     plt.ioff()
     plt.show()
 
@@ -211,5 +223,5 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
 if __name__ == "__main__":
     data_dir = "filtered_data"  # 筛选后的数据目录
     output_dir = "smalldata"  # 小数据集保存目录
-    small_data_dir, small_txt_path = create_small_dataset(data_dir, output_dir, num_samples=256)
-    train_pipeline(small_data_dir, small_txt_path, num_epochs=300, batch_size=32)
+    small_data_dir, small_txt_path = create_small_dataset(data_dir, output_dir, num_samples=64)
+    train_pipeline(small_data_dir, small_txt_path, num_epochs=300, batch_size=16)

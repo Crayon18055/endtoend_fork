@@ -2,4 +2,6 @@
 *.pth
 /data_250429
 /filtered_data
-/small_data
+/smalldata
+/train_data
+/test_data
