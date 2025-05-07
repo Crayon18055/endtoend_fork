@@ -104,12 +104,12 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     print(f"Model initialized")
 
-    # 包装模型以支持多 GPU
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs")
-        model = nn.DataParallel(model, device_ids=[0, 1])  # 指定使用 GPU 0 和 GPU 1
+    # # 包装模型以支持多 GPU
+    # if torch.cuda.device_count() > 1:
+    #     print(f"Using {torch.cuda.device_count()} GPUs")
+    #     model = nn.DataParallel(model, device_ids=[0, 1])  # 指定使用 GPU 0 和 GPU 1
 
-    model = model.to(device, dtype=torch.float32)
+    # model = model.to(device, dtype=torch.float32)
 
     # 定义损失函数和优化器
     criterion = nn.MSELoss()
@@ -196,7 +196,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
 
     # 保存最终模型权重
     final_checkpoint_path = os.path.join(save_dir, f"model_final_{os.path.basename(data_dir)}.pth")
-    os.mkdir(os.path.join(save_dir, "norm_params"), exist_ok=True)
+    os.makedirs(os.path.join(save_dir, "norm_params"), exist_ok=True)
     norm_params_path = os.path.join(save_dir,"norm_params", f"norm_params_{os.path.basename(data_dir)}.pth")
 
     torch.save({"target_min": target_min, "target_max": target_max}, norm_params_path)

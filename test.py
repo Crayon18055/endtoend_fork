@@ -95,8 +95,8 @@ if __name__ == "__main__":
     full_data_dir = "filtered_data"  # 数据目录
     # checkpoint_path = "checkpoints/model_final.pth"  # 模型权重路径
     num_samples = 8  # 随机选择的样本数量
-    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
 
     checkpoint_path = get_last_checkpoint()
     normparams_name = os.path.splitext(os.path.basename(checkpoint_path))[0].replace("model_final_", "norm_params_")
