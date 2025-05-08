@@ -2,7 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from torchvision import transforms
-from transformer import Transformer
+from transformer_vit import Transformer
 from config import config_dict
 from get_sample_in_dir import get_random_data_from_dir
 import os

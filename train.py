@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
 from PIL import Image, ImageDraw, ImageFont
-from transformer import Transformer  # 假设 Transformer 定义在 transformer.py 文件中
+from transformer_vit import Transformer  # 假设 Transformer 定义在 transformer.py 文件中
 from config import config_dict
 import matplotlib.pyplot as plt
 from datetime import datetime
@@ -86,7 +86,7 @@ def create_small_dataset(data_dir, output_dir, num_samples=128):
     return small_data_dir, small_txt_path
 
 # 持续训练流程
-def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="checkpoints"):
+def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints"):
     # 配置
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -111,6 +111,9 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
 
     # 加载小数据集
     df = pd.read_csv(txt_file, header=None, delimiter=',')
+    if max_samples is not None:
+        df = df.head(max_samples)  # 限制读取的样本数量
+
     image_files = df.iloc[:, 6].astype(int).astype(str) + ".jpg"
     trg = df.iloc[:, [4, 5]].values.astype(float)
     trg_data = torch.tensor(trg, dtype=torch.float32)
@@ -122,8 +125,8 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
     # 对 target_output_data 进行归一化
     # target_min = target_output_data.min(dim=0).values
     # target_max = target_output_data.max(dim=0).values
-    target_min = -0.5
-    target_max = 0.5
+    target_min = -0.3
+    target_max = 0.3
     target_output_data = (target_output_data - target_min) / (target_max - target_min)
     # max_values = target_output_data.max(dim=0).values
     # target_output_data = target_output_data / max_values
@@ -255,4 +258,4 @@ if __name__ == "__main__":
         raise ValueError(f"Invalid data source: {data_source}")
     
 
-    train_pipeline(small_data_dir, small_txt_path, num_epochs=300, batch_size=16)
+    train_pipeline(small_data_dir, small_txt_path, num_epochs=300, batch_size=16, max_samples=64)

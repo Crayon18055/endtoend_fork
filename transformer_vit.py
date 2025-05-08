@@ -76,19 +76,19 @@ class PositionWiseFeedForward(nn.Module):
     def __init__(self, input_dim: int, d_ff: int, dropout: float = 0.1):
         super(PositionWiseFeedForward, self).__init__()
 
-        self.activation = nn.ReLU()
+        self.activation = nn.GELU()
         self.w_1 = nn.Linear(input_dim, d_ff)
         self.w_2 = nn.Linear(d_ff, input_dim)
         self.dropout = dropout
 
     def forward(self, x):
-        residual = x
+        # residual = x
         x = self.activation(self.w_1(x))
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.w_2(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
 
-        return x + residual
+        return x
 
 
 class EmbeddingLidar(nn.Module):
@@ -112,7 +112,7 @@ class EmbeddingLidar(nn.Module):
         return x
 
 
-class EmbeddingImage(nn.Module):
+class ResizeImage(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.image_size = 640  # 图像尺寸 640x640
@@ -130,19 +130,38 @@ class EmbeddingImage(nn.Module):
     def forward(self, inputs):
         # inputs: [batch_size, 3, 640, 640]
         batch_size = inputs.size(0)
-         # 对图像像素进行归一化到 [0, 1]
-        inputs = inputs / 255.0
         # 将图像分割为 patch，并展平为 [batch_size, num_patches, patch_size*patch_size*num_channels]
         patches = inputs.unfold(2, self.patch_size, self.patch_size).unfold(3, self.patch_size, self.patch_size)
-        patches = patches.contiguous().view(batch_size, self.num_patches, -1)
+        x = patches.contiguous().view(batch_size, self.num_patches, -1)
         # 线性映射到 model_dim
-        x = self.linear(patches)
+        # x = self.linear(patches)
         # 添加位置编码
-        x = x + self.pos_embed
+        # x = x + self.pos_embed
         # 应用 dropout
-        x = F.dropout(x, p=self.dropout, training=self.training)
+        # x = F.dropout(x, p=self.dropout, training=self.training)
         return x
+    
+class AddPositionEmbs(nn.Module):
+    """Adds learned positional embeddings to the inputs."""
 
+    def __init__(self, seq_len, emb_dim):
+        """
+        Args:
+            seq_len (int): The length of the input sequence.
+            emb_dim (int): The embedding dimension of the input.
+        """
+        super(AddPositionEmbs, self).__init__()
+        self.pos_embedding = nn.Parameter(torch.randn(seq_len, emb_dim))  # Learnable positional embeddings
+    def forward(self, inputs):
+        """
+        Args:
+            inputs (torch.Tensor): Input tensor of shape (batch_size, seq_len, emb_dim).
+
+        Returns:
+            torch.Tensor: Output tensor with positional embeddings added, shape (batch_size, seq_len, emb_dim).
+        """
+        assert inputs.ndim == 3, f"Expected input to have 3 dimensions, but got {inputs.ndim}."
+        return inputs + self.pos_embedding
 
 class EncoderLayer(nn.Module):
 
@@ -158,16 +177,17 @@ class EncoderLayer(nn.Module):
         self.dropout = config.dropout
         self.activation_fn = nn.ReLU()
         self.PositionWiseFeedForward = PositionWiseFeedForward(self.input_dim, self.ffn_dim, config.dropout)
-        self.final_layer_norm = nn.LayerNorm(self.input_dim)
+        self.norm = nn.LayerNorm(self.input_dim)
 
-    def forward(self, x, encoder_padding_mask):
-        residual = x
-        x, attn_weights = self.self_attn(query=x, key=x, attention_mask=encoder_padding_mask)
+    def forward(self, input, encoder_padding_mask):
+        x=self.norm(input)
+        x, attn_weights = self.self_attn(query=x, key=x, attention_mask=encoder_padding_mask)        
         x = F.dropout(x, p=self.dropout, training=self.training)
-        x = residual + x
+
+        x = input + x
         x = self.self_attn_layer_norm(x)
+
         x = self.PositionWiseFeedForward(x)
-        x = self.final_layer_norm(x)
         return x, attn_weights
 
 
@@ -175,19 +195,19 @@ class Encoder(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.dropout = config.dropout
-
-        # 替换为 EmbeddingImage
-        self.embedding = EmbeddingImage(config)
-
         self.layers = nn.ModuleList([EncoderLayer(config) for _ in range(config.encoder_layers)])
-
+        self.pos_embed = AddPositionEmbs(config.num_patch, config.model_dim)
+        self.norm = nn.LayerNorm(config.input_dim)    
     def forward(self, inputs, attention_mask=None):
-        x = self.embedding(inputs)
+        x = self.pos_embed(inputs)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+
+
         self_attn_scores = []
         for encoder_layer in self.layers:
             x, attn = encoder_layer(x, attention_mask)
             self_attn_scores.append(attn.detach())
-
+        x = self.norm(x)
         return x, self_attn_scores
 
 
@@ -266,8 +286,12 @@ class Transformer(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.model_dim = config.model_dim
+        self.resize = ResizeImage(config)
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
+
+        # ResNet 前处理部分
+        # self.resnet = ResNetPreprocessor(config) if config.use_resnet else None
 
         self.prediction_head = nn.Linear(self.model_dim * 2, 2)
 
@@ -282,8 +306,14 @@ class Transformer(nn.Module):
                     nn.init.constant_(param.data, 0)
 
     def forward(self, src, trg):
+        # 如果启用了 ResNet，则先通过 ResNet 处理
+        # if self.resnet is not None:
+            # src = self.resnet(src)
+
+        x = self.resize(src)
         encoder_output, encoder_attention_scores = self.encoder(
-            inputs=src
+            x,
+            None
         )
         print(f"encoder_output: {encoder_output.shape}")
         decoder_output, decoder_attention_scores = self.decoder(
@@ -294,3 +324,69 @@ class Transformer(nn.Module):
         decoder_output = self.prediction_head(decoder_output)
 
         return decoder_output, encoder_attention_scores, decoder_attention_scores
+
+
+class ResNetPreprocessor(nn.Module):
+    """ResNet Preprocessing Module for Vision Transformer."""
+
+    def __init__(self, config):
+        super().__init__()
+        self.width = int(64 * config.resnet_width_factor)
+
+        # Root block
+        self.conv_root = nn.Conv2d(
+            in_channels=3,
+            out_channels=self.width,
+            kernel_size=7,
+            stride=2,
+            padding=3,
+            bias=False
+        )
+        self.gn_root = nn.GroupNorm(32, self.width)  # GroupNorm with 32 groups
+        self.relu = nn.ReLU()
+        self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
+        # ResNet stages
+        self.resnet_stages = nn.ModuleList()
+        for i, num_layers in enumerate(config.resnet_num_layers):
+            stage = ResNetStage(
+                in_channels=self.width * (2 ** i),
+                out_channels=self.width * (2 ** (i + 1)),
+                num_blocks=num_layers,
+                stride=1 if i == 0 else 2
+            )
+            self.resnet_stages.append(stage)
+
+    def forward(self, x):
+        # Root block
+        x = self.conv_root(x)
+        x = self.gn_root(x)
+        x = self.relu(x)
+        x = self.max_pool(x)
+
+        # ResNet stages
+        for stage in self.resnet_stages:
+            x = stage(x)
+
+        return x
+
+
+class ResNetStage(nn.Module):
+    """ResNet Stage consisting of multiple residual blocks."""
+
+    def __init__(self, in_channels, out_channels, num_blocks, stride):
+        super().__init__()
+        self.blocks = nn.ModuleList()
+        for i in range(num_blocks):
+            self.blocks.append(
+                ResidualBlock(
+                    in_channels=in_channels if i == 0 else out_channels,
+                    out_channels=out_channels,
+                    stride=stride if i == 0 else 1
+                )
+            )
+
+    def forward(self, x):
+        for block in self.blocks:
+            x = block(x)
+        return x
