@@ -95,8 +95,8 @@ def test_random_images_with_circle_trg(checkpoint_path, norm_para_path, data_dir
 if __name__ == "__main__":
     # 配置参数
      # 配置参数
-    full_data_dir = "filtered_data2/all/val"  # 数据目录
-    train_data_dir = "filtered_data2/small_256/train"  # 数据目录
+    full_data_dir = "filtered_data/all/val"  # 数据目录
+    train_data_dir = "filtered_data/small_256/train"  # 数据目录
 
     #*********************************************************************************
     data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"

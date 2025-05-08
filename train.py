@@ -12,6 +12,7 @@ import random
 import pandas as pd  # 用于读取和处理 .txt 文件
 from shutil import copyfile
 import signal
+import time  # 添加时间模块
 # 配置
 
 
@@ -176,6 +177,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
     # 修改训练循环
     try:
         for epoch in range(num_epochs):
+            epoch_start_time = time.time()  # 记录 epoch 开始时间
             epoch_loss = 0
 
             # 随机打乱数据顺序
@@ -185,6 +187,8 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
             shuffled_target_output_data = target_output_data[indices]
 
             for start_idx in range(0, len(shuffled_image_files), batch_size):
+                batch_start_time = time.time()  # 记录 batch 开始时间
+
                 # 获取当前 batch 的数据
                 batch_image_files = shuffled_image_files[start_idx:start_idx + batch_size]
                 batch_trg_data = shuffled_trg_data[start_idx:start_idx + batch_size]
@@ -200,6 +204,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
                 # 将目标数据移动到 GPU
                 batch_trg_data = batch_trg_data.to(device)
                 batch_target_output = batch_target_output.to(device)
+
                 # 前向传播
                 output, _, _ = model(batch_images, batch_trg_data)
 
@@ -213,8 +218,15 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, save_dir="
 
                 epoch_loss += loss.item()
 
-            print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss}")
+                # 打印 batch 用时
+                batch_end_time = time.time()
+                print(f"Epoch {epoch + 1}/{num_epochs}, Batch {start_idx // batch_size + 1}, Batch Time: {batch_end_time - batch_start_time:.2f}s")
 
+            # 打印 epoch 用时
+            epoch_end_time = time.time()
+            print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss}, Epoch Time: {epoch_end_time - epoch_start_time:.2f}s")
+
+            # 更新 loss 历史
             loss_history.append(epoch_loss)
             line.set_xdata(range(len(loss_history)))
             line.set_ydata(loss_history)
@@ -234,11 +246,11 @@ if __name__ == "__main__":
     # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     if data_source == "fulldata":
-        small_data_dir = "filtered_data2/all/train"  # 筛选后的数据目录
-        small_txt_path = "filtered_data2/all/train/labels.txt"  # 小数据集的 .txt 文件路径
+        small_data_dir = "filtered_data/all/train"  # 筛选后的数据目录
+        small_txt_path = "filtered_data/all/train/labels.txt"  # 小数据集的 .txt 文件路径
     elif data_source == "smalldata":
-        small_data_dir = "filtered_data2/small_256/train"  # 筛选后的数据目录
-        small_txt_path = "filtered_data2/small_256/train/labels.txt"  # 小数据集的 .txt 文件路径
+        small_data_dir = "filtered_data/small_256/train"  # 筛选后的数据目录
+        small_txt_path = "filtered_data/small_256/train/labels.txt"  # 小数据集的 .txt 文件路径
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     

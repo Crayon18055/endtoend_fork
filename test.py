@@ -92,8 +92,8 @@ def test_model(checkpoint_path, norm_para_path, selected_images, selected_rows):
 
 if __name__ == "__main__":
     # 配置参数
-    full_data_dir = "filtered_data2/all/val"  # 数据目录
-    train_data_dir = "filtered_data2/small_256/train"  # 数据目录
+    full_data_dir = "filtered_data/all/val"  # 数据目录
+    train_data_dir = "filtered_data/small_256/train"  # 数据目录
     num_samples = 8  # 随机选择的样本数量
 
     #*********************************************************************************
