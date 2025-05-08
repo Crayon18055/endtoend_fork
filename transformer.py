@@ -112,34 +112,60 @@ class EmbeddingLidar(nn.Module):
         return x
 
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 class EmbeddingImage(nn.Module):
+    r"""
+    改进版图像嵌入：
+      - Conv Stem 3×: (Stride 2) × 3 -> 特征图下采样 8 倍
+      - Overlap Patch Embedding: Conv 3×3 / stride 2 / padding 1
+      - 总等效 patch_size = 16
+    """
     def __init__(self, config):
         super().__init__()
-        self.image_size = 640  # 图像尺寸 640x640
-        self.patch_size = 16   # 每个 patch 的尺寸 16x16
-        self.num_channels = 3  # RGB 通道
-        self.num_patches = (self.image_size // self.patch_size) ** 2  # 总 patch 数量
-        self.model_dim = config.model_dim
-        self.dropout = config.dropout
+        self.image_size  = 640
+        self.patch_size  = 16
+        self.model_dim   = 768
+        self.num_channels= 3
+        self.dropout     = config.dropout
 
-        # 线性投影层，将每个 patch 展平后映射到 model_dim
-        self.linear = nn.Linear(self.patch_size * self.patch_size * self.num_channels, self.model_dim)
-        # 位置编码
-        self.pos_embed = nn.Parameter(torch.randn(self.num_patches, self.model_dim))
+        # ---------- Conv Stem ----------
+        stem_channels = [64, 128, 256]
+        convs = []
+        in_c = self.num_channels
+        for out_c in stem_channels:
+            convs.extend([
+                nn.Conv2d(in_c, out_c, kernel_size=3, stride=2, padding=1, bias=False),
+                nn.BatchNorm2d(out_c),
+                nn.GELU()
+            ])
+            in_c = out_c
+        self.stem = nn.Sequential(*convs)      # stride 8
 
-    def forward(self, inputs):
-        # inputs: [batch_size, 3, 640, 640]
-        batch_size = inputs.size(0)
-         # 对图像像素进行归一化到 [0, 1]
-        inputs = inputs / 255.0
-        # 将图像分割为 patch，并展平为 [batch_size, num_patches, patch_size*patch_size*num_channels]
-        patches = inputs.unfold(2, self.patch_size, self.patch_size).unfold(3, self.patch_size, self.patch_size)
-        patches = patches.contiguous().view(batch_size, self.num_patches, -1)
-        # 线性映射到 model_dim
-        x = self.linear(patches)
-        # 添加位置编码
-        x = x + self.pos_embed
-        # 应用 dropout
+        # ---------- Overlap Patch Embedding ----------
+        # stride 2 -> 总 stride 16
+        self.proj = nn.Conv2d(
+            in_channels = stem_channels[-1],
+            out_channels= self.model_dim,
+            kernel_size = 3,
+            stride      = 2,
+            padding     = 1
+        )
+
+        # ---------- 位置编码 ----------
+        num_patches = (self.image_size // self.patch_size) ** 2
+        self.pos_embed = nn.Parameter(torch.randn(1, num_patches, self.model_dim))
+        self.norm = nn.LayerNorm(self.model_dim)
+
+    def forward(self, x):
+        # x: [B, 3, 640, 640]
+        x = self.stem(x)           # [B, 256, 80, 80]
+        x = self.proj(x)           # [B, 768, 40, 40]
+        x = x.flatten(2).transpose(1, 2)  # [B, N=1600, 768]
+        x = self.norm(x)                 # LN 在特征维度
+        # x = x + self.pos_embed
         x = F.dropout(x, p=self.dropout, training=self.training)
         return x
 

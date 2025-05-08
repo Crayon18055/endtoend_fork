@@ -1,7 +1,4 @@
 *.zip
 *.pth
-/data_250429
 /filtered_data
-/smalldata
-/train_data
-/test_data
+/checkpoints

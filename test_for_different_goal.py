@@ -6,7 +6,7 @@ from transformer import Transformer
 from config import config_dict
 from get_sample_in_dir import get_random_data_from_dir
 import os
-
+import math
 
 
 def load_image(image_path):
@@ -17,6 +17,7 @@ def load_image(image_path):
     image = Image.open(image_path).convert("RGB")
     image = transform(image)
     return image.unsqueeze(0)  # 添加 batch 维度
+
 
 def get_last_checkpoint():
     checkpoint_dir = "checkpoints"  # 假设权重文件保存在 "checkpoints" 目录下
@@ -29,7 +30,7 @@ def get_last_checkpoint():
     return checkpoint_path
 
 
-def test_model(checkpoint_path, norm_para_path, selected_images, selected_rows):
+def test_random_images_with_circle_trg(checkpoint_path, norm_para_path, data_dir, num_samples=8, num_points=8):
     # 配置设备
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -44,6 +45,8 @@ def test_model(checkpoint_path, norm_para_path, selected_images, selected_rows):
     target_max = norm_params["target_max"]
     print(f"target_min: {target_min}, target_max: {target_max}")
 
+    # 随机获取图片和对应数据
+    selected_images, selected_rows = get_random_data_from_dir(data_dir, num_samples)
 
     # 初始化绘图
     fig, axes = plt.subplots(2, 4, figsize=(16, 8))
@@ -54,32 +57,30 @@ def test_model(checkpoint_path, norm_para_path, selected_images, selected_rows):
         # 加载图片
         src = load_image(image_path).to(device, dtype=torch.float32)
 
-        # 设置 trg 为第 5 和第 6 列
-        trg_vector = row[[4, 5]].values.astype(float)
-        # trg_vector[1] = -trg_vector[1]
-        norm = (trg_vector[0]**2 + trg_vector[1]**2)**0.5
-        trg_vector = trg_vector / norm
-        trg = torch.tensor(trg_vector, dtype=torch.float32).view(1, 2, 1).to(device)
-
-        # 前向推理
-        with torch.no_grad():
-            output, _, _ = model(src, trg)
-            output = output * (target_max - target_min) + target_min
-
-        # 打印输出结果
-        output_text = f"Output: {[round(val, 4) for val in output.squeeze().tolist()]}"
-        target_text = f"Target: {[round(val, 4) for val in row[[2, 3]].values.tolist()]}"
-        trg_text = f"Trg: {[round(val, 4) for val in trg.squeeze().tolist()]}"
-
-        # 在图片上写入输出结果和 target_output
+        # 初始化 PIL 绘图
         image = Image.open(image_path)
         image = image.rotate(180)
         draw = ImageDraw.Draw(image)
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
-        draw.text((10, 10), output_text, fill="red", font=font)
-        draw.text((10, 40), target_text, fill="blue", font=font)
-        draw.text((10, 70), trg_text, fill="blue", font=font)
 
+        # 在单位圆上生成 trg 点
+        for j in range(num_points):
+            angle = math.pi * j / (num_points - 1)- math.pi / 2  # 从上方开始
+            trg_vector = [math.cos(angle), math.sin(angle)]
+            trg = torch.tensor(trg_vector, dtype=torch.float32).view(1, 2, 1).to(device)
+
+            # 前向推理
+            with torch.no_grad():
+                output, _, _ = model(src, trg)
+                output = output * (target_max - target_min) + target_min
+
+            # 打印输出结果
+            output_text = f"Output: {[round(val, 4) for val in output.squeeze().tolist()]}"
+            trg_text = f"Trg: {[round(val, 4) for val in trg.squeeze().tolist()]}"
+            # print(f"Image {i + 1}, Point {j + 1}: {output_text}, {trg_text}")
+
+            # 在图片上写入输出结果
+            draw.text((10, 10 + j * 30), f"{output_text} | {trg_text}", fill="red", font=font)
 
         # 显示图片
         axes[i].imshow(image)
@@ -90,11 +91,12 @@ def test_model(checkpoint_path, norm_para_path, selected_images, selected_rows):
     plt.tight_layout()
     plt.show()
 
+
 if __name__ == "__main__":
     # 配置参数
+     # 配置参数
     full_data_dir = "filtered_data2/all/val"  # 数据目录
     train_data_dir = "filtered_data2/small_256/train"  # 数据目录
-    num_samples = 8  # 随机选择的样本数量
 
     #*********************************************************************************
     data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
@@ -107,10 +109,10 @@ if __name__ == "__main__":
     # print(f"norm_para_path: {norm_para_path}")
 
     if data_source == "fulldata":
-        selected_images, selected_rows = get_random_data_from_dir(full_data_dir, num_samples)
+        data_dir = full_data_dir
     elif data_source == "traindata":
-        selected_images, selected_rows = get_random_data_from_dir(train_data_dir, num_samples)
+        data_dir = train_data_dir
     else:
         raise ValueError(f"Invalid data source: {data_source}")
-
-    test_model(checkpoint_path, norm_para_path, selected_images, selected_rows)
+    # 测试随机图片
+    test_random_images_with_circle_trg(checkpoint_path, norm_para_path, data_dir, num_samples=8, num_points=9)

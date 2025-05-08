@@ -5,7 +5,7 @@ import pandas as pd
 
 def get_random_data_from_dir(data_dir, num_samples=8):
     # 获取过滤后的数据目录
-    txt_dir = os.path.join(data_dir, "txt_files")
+    txt_dir = os.path.join(data_dir)
     image_dir = os.path.join(data_dir, "images")
     if not os.path.exists(txt_dir) or not os.path.exists(image_dir):
         raise FileNotFoundError(f"data directory not found: {data_dir}")
@@ -31,5 +31,5 @@ def get_random_data_from_dir(data_dir, num_samples=8):
         if not os.path.exists(img_file):
             raise FileNotFoundError(f"Image not found: {img_file}")
 
-    print("Selected images and data loaded from full data.")
+    print("Selected images and data loaded.")
     return selected_images, selected_rows
