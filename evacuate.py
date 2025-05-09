@@ -129,7 +129,7 @@ def calculate_score(output, target):
     
     original_kappa_error = kappa_output - kappa_target
     # 计算曲率的 tanh 函数，将曲率限制到 [-1, 1]
-    # alpha = 0.001  # 曲率的缩放因子
+
     norm_kappa_error = np.tanh(original_kappa_error)  # 使用 tanh 函数限制曲率
 
     # 计算线速度和曲率的加权平方和
