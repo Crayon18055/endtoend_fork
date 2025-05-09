@@ -133,6 +133,7 @@ class ResizeImage(nn.Module):
         # 将图像分割为 patch，并展平为 [batch_size, num_patches, patch_size*patch_size*num_channels]
         patches = inputs.unfold(2, self.patch_size, self.patch_size).unfold(3, self.patch_size, self.patch_size)
         x = patches.contiguous().view(batch_size, self.num_patches, -1)
+        print(f"patches: {x}")
         # 线性映射到 model_dim
         # x = self.linear(patches)
         # 添加位置编码
@@ -315,7 +316,7 @@ class Transformer(nn.Module):
             x,
             None
         )
-        print(f"encoder_output: {encoder_output.shape}")
+        # print(f"encoder_output: {encoder_output.shape}")
         decoder_output, decoder_attention_scores = self.decoder(
             trg,
             encoder_output

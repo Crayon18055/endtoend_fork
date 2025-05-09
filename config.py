@@ -7,7 +7,7 @@ config_dict = easydict.EasyDict({
     "model_dim": 768,
     "ffn_dim": 1024,
     "attention_heads": 6,
-    "attention_dropout": 0.1,
+    "attention_dropout": 0.2,
     "dropout": 0.4,
     "encoder_layers": 4,
     "decoder_layers": 4,

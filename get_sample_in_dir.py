@@ -18,6 +18,7 @@ def get_random_data_from_dir(data_dir, num_samples=8):
 
     # 加载 .txt 文件为 DataFrame
     df = pd.read_csv(selected_txt_file, header=None, delimiter=',')
+    df = df.head(256)  # 限制读取的样本数量
 
     # 随机选择 num_samples 行数据
     if len(df) < num_samples:

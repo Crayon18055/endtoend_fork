@@ -165,7 +165,8 @@ class EmbeddingImage(nn.Module):
         x = self.proj(x)           # [B, 768, 40, 40]
         x = x.flatten(2).transpose(1, 2)  # [B, N=1600, 768]
         x = self.norm(x)                 # LN 在特征维度
-        # x = x + self.pos_embed
+        x = x + self.pos_embed
+        # print(x.shape, self.pos_embed.shape)
         x = F.dropout(x, p=self.dropout, training=self.training)
         return x
 

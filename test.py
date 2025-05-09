@@ -2,7 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from torchvision import transforms
-from transformer_vit import Transformer
+from transformer import Transformer
 from config import config_dict
 from get_sample_in_dir import get_random_data_from_dir
 import os
@@ -26,6 +26,7 @@ def get_last_checkpoint():
     if not checkpoint_files:
         raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
     checkpoint_path = max(checkpoint_files, key=os.path.getmtime)  # 按修改时间选择最新的文件
+    print(f"Checkpoint path: {checkpoint_path}")
     return checkpoint_path
 
 
@@ -97,8 +98,8 @@ if __name__ == "__main__":
     num_samples = 8  # 随机选择的样本数量
 
     #*********************************************************************************
-    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     checkpoint_path = get_last_checkpoint()
     # checkpoint_path = "checkpoints/model_final_20250507_125438.pth"  # 模型权重路径

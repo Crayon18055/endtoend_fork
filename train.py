@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
 from PIL import Image, ImageDraw, ImageFont
-from transformer_vit import Transformer  # 假设 Transformer 定义在 transformer.py 文件中
+from transformer import Transformer  # 假设 Transformer 定义在 transformer.py 文件中
 from config import config_dict
 import matplotlib.pyplot as plt
 from datetime import datetime
@@ -88,7 +88,7 @@ def create_small_dataset(data_dir, output_dir, num_samples=128):
 # 持续训练流程
 def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints"):
     # 配置
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # 初始化模型
@@ -112,7 +112,8 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     # 加载小数据集
     df = pd.read_csv(txt_file, header=None, delimiter=',')
     if max_samples is not None:
-        df = df.head(max_samples)  # 限制读取的样本数量
+        # df = df.sample(n=max_samples)  # 随机选择指定数量的样本
+        df = df.head(n=max_samples)  # 随机选择指定数量的样本
 
     image_files = df.iloc[:, 6].astype(int).astype(str) + ".jpg"
     trg = df.iloc[:, [4, 5]].values.astype(float)
@@ -173,6 +174,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
 
     # 定义加权损失函数
     def weighted_loss(output, target, weight1=1.0, weight2=1.0):
+        # print(f"Output: {output[:, 0]}, {output[:, 1]}")
         loss1 = weight1 * (output[:, 0] - target[:, 0])**2
         loss2 = weight2 * (output[:, 1] - target[:, 1])**2
         return torch.mean(loss1 + loss2)
@@ -212,7 +214,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
                 output, _, _ = model(batch_images, batch_trg_data)
 
                 # 计算加权损失
-                loss = weighted_loss(output, batch_target_output, weight1=10.0, weight2=50.0)
+                loss = weighted_loss(output, batch_target_output, weight1=10.0, weight2=20.0)
 
                 # 反向传播和优化
                 optimizer.zero_grad()
@@ -239,14 +241,14 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     except KeyboardInterrupt:
         save_and_exit(None, None)
     save_and_exit(None, None)
-    plt.ioff()
-    plt.show()
+    # plt.ioff()
+    # plt.show()
 
 # 测试代码
 if __name__ == "__main__":
     #*********************************************************************************
-    data_source = "smalldata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "smalldata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     if data_source == "fulldata":
         small_data_dir = "filtered_data/all/train"  # 筛选后的数据目录
@@ -258,4 +260,4 @@ if __name__ == "__main__":
         raise ValueError(f"Invalid data source: {data_source}")
     
 
-    train_pipeline(small_data_dir, small_txt_path, num_epochs=300, batch_size=16, max_samples=64)
+    train_pipeline(small_data_dir, small_txt_path, num_epochs=1000, batch_size=16, max_samples=256, save_dir="checkpoints")

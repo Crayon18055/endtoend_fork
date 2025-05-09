@@ -2,7 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from torchvision import transforms
-from transformer_vit import Transformer
+from transformer import Transformer
 from config import config_dict
 from get_sample_in_dir import get_random_data_from_dir
 import os
@@ -99,8 +99,8 @@ if __name__ == "__main__":
     train_data_dir = "filtered_data/small_256/train"  # 数据目录
 
     #*********************************************************************************
-    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     checkpoint_path = get_last_checkpoint()
     # checkpoint_path = "checkpoints/model_final_20250507_125438.pth"  # 模型权重路径
