@@ -260,4 +260,4 @@ if __name__ == "__main__":
         raise ValueError(f"Invalid data source: {data_source}")
     
 
-    train_pipeline(small_data_dir, small_txt_path, num_epochs=1000, batch_size=16, max_samples=256, save_dir="checkpoints")
+    train_pipeline(small_data_dir, small_txt_path, num_epochs=1000, batch_size=8, max_samples=256, save_dir="checkpoints")

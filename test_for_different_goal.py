@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 from torchvision import transforms
 from transformer import Transformer
 from config import config_dict
-from get_sample_in_dir import get_random_data_from_dir
+from get_sample_in_dir import get_data_from_dir
 import os
 import math
 
@@ -46,7 +46,7 @@ def test_random_images_with_circle_trg(checkpoint_path, norm_para_path, data_dir
     print(f"target_min: {target_min}, target_max: {target_max}")
 
     # 随机获取图片和对应数据
-    selected_images, selected_rows = get_random_data_from_dir(data_dir, num_samples)
+    selected_images, selected_rows = get_data_from_dir(data_dir, num_samples)
 
     # 初始化绘图
     fig, axes = plt.subplots(2, 4, figsize=(16, 8))

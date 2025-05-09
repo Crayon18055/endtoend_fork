@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 from torchvision import transforms
 from transformer import Transformer
 from config import config_dict
-from get_sample_in_dir import get_random_data_from_dir
+from get_sample_in_dir import get_data_from_dir
 import os
 
 
@@ -108,9 +108,9 @@ if __name__ == "__main__":
     # print(f"norm_para_path: {norm_para_path}")
 
     if data_source == "fulldata":
-        selected_images, selected_rows = get_random_data_from_dir(full_data_dir, num_samples)
+        selected_images, selected_rows = get_data_from_dir(full_data_dir, num_samples)
     elif data_source == "traindata":
-        selected_images, selected_rows = get_random_data_from_dir(train_data_dir, num_samples)
+        selected_images, selected_rows = get_data_from_dir(train_data_dir, num_samples)
     else:
         raise ValueError(f"Invalid data source: {data_source}")
 
