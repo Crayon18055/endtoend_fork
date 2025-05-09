@@ -39,7 +39,7 @@ def normalize_vector(data):
 
 
 # 持续训练流程
-def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints"):
+def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints", pretrained_weights=None):
     # 配置
     device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -48,6 +48,13 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     print(f"Model initialized")
 
+    # 如果指定了预训练权重路径，则加载权重
+    if pretrained_weights:
+        if os.path.exists(pretrained_weights):
+            model.load_state_dict(torch.load(pretrained_weights, map_location=device))
+            print(f"Loaded pretrained weights from {pretrained_weights}")
+        else:
+            raise FileNotFoundError(f"Pretrained weights not found at {pretrained_weights}")
 
     # 定义损失函数和优化器
     criterion = nn.MSELoss()
@@ -59,8 +66,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     # 加载小数据集
     df = pd.read_csv(txt_file, header=None, delimiter=',')
     if max_samples is not None:
-        # df = df.sample(n=max_samples)  # 随机选择指定数量的样本
-        df = df.head(n=max_samples)  # 随机选择指定数量的样本
+        df = df.head(n=max_samples)
 
     image_files = df.iloc[:, 6].astype(int).astype(str) + ".jpg"
     trg = df.iloc[:, [4, 5]].values.astype(float)
@@ -74,8 +80,6 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     target_max = 0.3
     target_output_data[:, 1] = (target_output_data[:, 1] - target_min) / (target_max - target_min)
 
-    # # 将数据移动到设备
-    # images = images.to(device)
     trg_data = trg_data.unsqueeze(-1).to(device)  # 添加最后一维
     target_output_data = target_output_data.to(device)
 
@@ -223,5 +227,12 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     
-
-    train_pipeline(data_dir, txt_path, num_epochs=1000, batch_size=16, max_samples=256, save_dir="checkpoints")
+    pretrained_weights_path = "checkpoints/model_final_20250509_185633.pth"  # 指定预训练权重路径
+    train_pipeline(data_dir, 
+                   txt_path, 
+                   num_epochs=1000, 
+                   batch_size=16, 
+                   max_samples=16, 
+                   save_dir="checkpoints", 
+                   pretrained_weights=pretrained_weights_path)
+    # train_pipeline(data_dir, txt_path, num_epochs=1000, batch_size=16, max_samples=256, save_dir="checkpoints

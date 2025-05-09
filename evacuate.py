@@ -48,6 +48,36 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
 
     # 初始化评分列表
     scores = []
+    def calculate_score_1(output, target):
+        """
+        用户定义的评分函数，支持 batch 维度。
+        Args:
+            output: 模型输出值，形状为 [batch_size, 2]，第一项为线速度，第二项为角速度。
+            target: 数据集参考值，形状为 [batch_size, 2]，第一项为线速度，第二项为角速度。
+        Returns:
+            总评分值（float）
+        """
+        # 提取线速度和角速度
+        v_output, w_output = output[:, 0], output[:, 1]  # 模型输出
+        v_target, w_target = target[:, 0], target[:, 1]  # 数据集参考值
+
+        # 计算曲率 (kappa = w / v)，并限制线速度非零
+        kappa_output = w_output / torch.clamp(v_output, min=1e-6)  # 避免除以零
+        kappa_target = w_target / torch.clamp(v_target, min=1e-6)
+
+        # 计算曲率的 tanh 函数，将曲率限制到 [-1, 1]
+        norm_kappa_error = torch.tanh(kappa_output - kappa_target)  # 使用 tanh 函数限制曲率
+
+        # 计算线速度和曲率的加权平方和
+        weight_v = 1.0  # 线速度的权重
+        weight_kappa = 5.0  # 曲率的权重
+        score = (
+            weight_v * (v_output - v_target) ** 2 +
+            weight_kappa * norm_kappa_error ** 2
+        )
+
+        # 返回总分
+        return torch.mean(score)
 
     # 遍历所有图片
     for image_path, row in zip(image_paths, rows.iterrows()):
@@ -67,9 +97,14 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
             output = output * (target_max - target_min) + target_min
             # output[:, 1] = output[:, 1] * (target_max - target_min) + target_min
         # 计算评分（评分函数由用户定义）
+        
         target_output = row[[2, 3]].values.astype(float)
+        batch_target_output = torch.tensor(target_output, dtype=torch.float32).view(1, 2, 1).to(device)
+        loss = calculate_score_1(output, batch_target_output)
+        print(f"Loss: {loss}")
         # print(f"Target Output: {target_output}, Model Output: {output.squeeze().cpu().numpy()}")
         score = calculate_score(output.squeeze().cpu().numpy(), target_output)
+        print(f"Score: {score}")
         scores.append((image_path, score, output.squeeze().cpu().numpy(), target_output, trg_vector))
 
     # 计算总评分和平均分
@@ -152,10 +187,11 @@ if __name__ == "__main__":
 
     # 数据来源
     #*********************************************************************************
-    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    checkpoint_path = get_last_checkpoint()
+    # checkpoint_path = get_last_checkpoint()
+    checkpoint_path = "checkpoints/model_final_20250509_185633.pth"
     normparams_name = os.path.splitext(os.path.basename(checkpoint_path))[0].replace("model_final_", "norm_params_")
     norm_para_path = os.path.join("checkpoints", "norm_params", f"{normparams_name}.pth")
 
