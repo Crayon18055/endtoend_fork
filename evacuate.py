@@ -65,7 +65,7 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
         with torch.no_grad():
             output, _, _ = model(src, trg)
             output = output * (target_max - target_min) + target_min
-
+            # output[:, 1] = output[:, 1] * (target_max - target_min) + target_min
         # 计算评分（评分函数由用户定义）
         target_output = row[[2, 3]].values.astype(float)
         # print(f"Target Output: {target_output}, Model Output: {output.squeeze().cpu().numpy()}")
@@ -75,8 +75,8 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
     # 计算总评分和平均分
     total_score = sum([s[1] for s in scores])
     avg_score = total_score / len(scores)
-    print(f"Total Score: {total_score}")
-    print(f"Average Score: {avg_score}")
+    # print(f"Total Score: {total_score}")
+    # print(f"Average Score: {avg_score}")
 
     # 选取评分最高的 5% 图片
     scores.sort(key=lambda x: x[1], reverse=True)
@@ -135,8 +135,8 @@ def calculate_score(output, target):
     # 计算线速度和曲率的加权平方和
     weight_v = 1.0  # 线速度的权重
     weight_kappa = 5.0  # 曲率的权重
-    print("v:", weight_v * (v_output - v_target) ** 2)
-    print("k:", weight_kappa * norm_kappa_error ** 2)
+    # print("v:", weight_v * (v_output - v_target) ** 2)
+    # print("k:", weight_kappa * norm_kappa_error ** 2)
     score = (
         weight_v * (v_output - v_target) ** 2 +
         weight_kappa * norm_kappa_error ** 2
@@ -147,14 +147,13 @@ def calculate_score(output, target):
 
 if __name__ == "__main__":
     # 配置参数
-    full_data_dir = "filtered_data/all/val"  # 数据目录
+    full_data_dir = "filtered_data/all/train"  # 数据目录
     train_data_dir = "filtered_data/small_256/train"  # 数据目录
-    num_samples = 8  # 样本数量（此处不随机抽取）
 
     # 数据来源
     #*********************************************************************************
-    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     checkpoint_path = get_last_checkpoint()
     normparams_name = os.path.splitext(os.path.basename(checkpoint_path))[0].replace("model_final_", "norm_params_")

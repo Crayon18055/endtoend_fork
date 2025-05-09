@@ -73,6 +73,7 @@ def test_random_images_with_circle_trg(checkpoint_path, norm_para_path, data_dir
             with torch.no_grad():
                 output, _, _ = model(src, trg)
                 output = output * (target_max - target_min) + target_min
+                # output[:, 1] = output[:, 1] * (target_max - target_min) + target_min
 
             # 打印输出结果
             output_text = f"Output: {[round(val, 4) for val in output.squeeze().tolist()]}"

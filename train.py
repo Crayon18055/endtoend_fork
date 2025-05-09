@@ -36,54 +36,7 @@ def normalize_vector(data):
     normalized_data = data / length
     return normalized_data
 
-# 随机获取 128 张图片并保存到新目录
-def create_small_dataset(data_dir, output_dir, num_samples=128):
-    """
-    从预先筛选过的 filtered_data 中随机选择 num_samples 行数据，并保存到新的目录和 .txt 文件中。
-    
-    Args:
-        data_dir (str): 筛选后的数据目录，包含 .txt 文件和图片。
-        output_dir (str): 保存小数据集的目标目录。
-        num_samples (int): 随机选择的样本数量。
-    """
-    # 创建时间戳命名的文件夹
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    small_data_dir = os.path.join(output_dir, timestamp)
-    os.makedirs(small_data_dir, exist_ok=True)
-    os.makedirs(os.path.join(small_data_dir, "images"), exist_ok=True)
-    os.makedirs(os.path.join(small_data_dir, "txt_files"), exist_ok=True)
-    small_txt_path = os.path.join(small_data_dir,"txt_files", "small_data.txt")
 
-    # 获取所有筛选后的 .txt 文件
-    txt_files = [os.path.join(data_dir, "txt_files", f) for f in os.listdir(os.path.join(data_dir, "txt_files")) if f.endswith('.txt')]
-    if not txt_files:
-        raise FileNotFoundError(f"No .txt files found in directory: {os.path.join(data_dir, 'txt_files')}")
-
-    # 随机选择一个 .txt 文件
-    selected_file = random.choice(txt_files)
-    df = pd.read_csv(selected_file, header=None, delimiter=',')
-
-    # 随机选择 num_samples 行数据
-    if len(df) < num_samples:
-        raise ValueError(f"Not enough rows in the selected file: {selected_file}")
-    selected_rows = df.sample(n=num_samples)
-
-    # 保存选定的 .txt 数据
-    selected_rows.to_csv(small_txt_path, header=False, index=False)
-
-    # 保存对应的图片
-    image_files = selected_rows.iloc[:, 6].astype(int).astype(str) + ".jpg"
-    for img_file in image_files:
-        src_img_path = os.path.join(data_dir, "images", img_file)
-        dst_img_path = os.path.join(small_data_dir,"images", img_file)
-        os.makedirs(os.path.dirname(dst_img_path), exist_ok=True)
-        if os.path.exists(src_img_path):  # 确保图片存在
-            copyfile(src_img_path, dst_img_path)
-        else:
-            print(f"Image not found: {src_img_path}")
-
-    print(f"Small dataset created at {small_data_dir}")
-    return small_data_dir, small_txt_path
 
 # 持续训练流程
 def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints"):
@@ -95,12 +48,6 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     print(f"Model initialized")
 
-    # # 包装模型以支持多 GPU
-    # if torch.cuda.device_count() > 1:
-    #     print(f"Using {torch.cuda.device_count()} GPUs")
-    #     model = nn.DataParallel(model, device_ids=[0, 1])  # 指定使用 GPU 0 和 GPU 1
-
-    # model = model.to(device, dtype=torch.float32)
 
     # 定义损失函数和优化器
     criterion = nn.MSELoss()
@@ -118,26 +65,14 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     image_files = df.iloc[:, 6].astype(int).astype(str) + ".jpg"
     trg = df.iloc[:, [4, 5]].values.astype(float)
     trg_data = torch.tensor(trg, dtype=torch.float32)
-    # trg_data = torch.tensor([[1.0, 0.0]] * len(df), dtype=torch.float32)
     trg_data = normalize_vector(trg_data)
     target_output = df.iloc[:, [2, 3]].values.astype(float)
     target_output_data = torch.tensor(target_output, dtype=torch.float32)
 
-    # 对 target_output_data 进行归一化
-    # target_min = target_output_data.min(dim=0).values
-    # target_max = target_output_data.max(dim=0).values
+    # 对 target_output_data 的第二个维度进行归一化，第一个维度保持不变
     target_min = -0.3
     target_max = 0.3
-    target_output_data = (target_output_data - target_min) / (target_max - target_min)
-    # max_values = target_output_data.max(dim=0).values
-    # target_output_data = target_output_data / max_values
-
-    # # 加载图片
-    # images = []
-    # for img_file in image_files:
-    #     img_path = os.path.join(data_dir,"images", img_file)
-    #     images.append(load_image(img_path))
-    # images = torch.cat(images)
+    target_output_data[:, 1] = (target_output_data[:, 1] - target_min) / (target_max - target_min)
 
     # # 将数据移动到设备
     # images = images.to(device)
@@ -173,12 +108,41 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     model.train()
 
     # 定义加权损失函数
-    def weighted_loss(output, target, weight1=1.0, weight2=1.0):
-        # print(f"Output: {output[:, 0]}, {output[:, 1]}")
-        loss1 = weight1 * (output[:, 0] - target[:, 0])**2
-        loss2 = weight2 * (output[:, 1] - target[:, 1])**2
-        return torch.mean(loss1 + loss2)
+    # def weighted_loss(output, target, weight1=1.0, weight2=1.0):
+    #     # print(f"Output: {output[:, 0]}, {output[:, 1]}")
+    #     loss1 = weight1 * (output[:, 0] - target[:, 0])**2
+    #     loss2 = weight2 * (output[:, 1] - target[:, 1])**2
+    #     return torch.mean(loss1 + loss2)
+    def calculate_score(output, target):
+        """
+        用户定义的评分函数，支持 batch 维度。
+        Args:
+            output: 模型输出值，形状为 [batch_size, 2]，第一项为线速度，第二项为角速度。
+            target: 数据集参考值，形状为 [batch_size, 2]，第一项为线速度，第二项为角速度。
+        Returns:
+            总评分值（float）
+        """
+        # 提取线速度和角速度
+        v_output, w_output = output[:, 0], output[:, 1]  # 模型输出
+        v_target, w_target = target[:, 0], target[:, 1]  # 数据集参考值
 
+        # 计算曲率 (kappa = w / v)，并限制线速度非零
+        kappa_output = w_output / torch.clamp(v_output, min=1e-6)  # 避免除以零
+        kappa_target = w_target / torch.clamp(v_target, min=1e-6)
+
+        # 计算曲率的 tanh 函数，将曲率限制到 [-1, 1]
+        norm_kappa_error = torch.tanh(kappa_output - kappa_target)  # 使用 tanh 函数限制曲率
+
+        # 计算线速度和曲率的加权平方和
+        weight_v = 1.0  # 线速度的权重
+        weight_kappa = 5.0  # 曲率的权重
+        score = (
+            weight_v * (v_output - v_target) ** 2 +
+            weight_kappa * norm_kappa_error ** 2
+        )
+
+        # 返回总分
+        return torch.mean(score)
     # 修改训练循环
     try:
         for epoch in range(num_epochs):
@@ -212,9 +176,9 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
 
                 # 前向传播
                 output, _, _ = model(batch_images, batch_trg_data)
-
+                output[:, 1] = output[:, 1] * (target_max - target_min) + target_min
                 # 计算加权损失
-                loss = weighted_loss(output, batch_target_output, weight1=10.0, weight2=20.0)
+                loss = 10 * calculate_score(output, batch_target_output)
 
                 # 反向传播和优化
                 optimizer.zero_grad()
@@ -251,13 +215,13 @@ if __name__ == "__main__":
     data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     if data_source == "fulldata":
-        small_data_dir = "filtered_data/all/train"  # 筛选后的数据目录
-        small_txt_path = "filtered_data/all/train/labels.txt"  # 小数据集的 .txt 文件路径
+        data_dir = "filtered_data/all/train"  # 筛选后的数据目录
+        txt_path = "filtered_data/all/train/labels.txt"  # 小数据集的 .txt 文件路径
     elif data_source == "smalldata":
-        small_data_dir = "filtered_data/small_256/train"  # 筛选后的数据目录
-        small_txt_path = "filtered_data/small_256/train/labels.txt"  # 小数据集的 .txt 文件路径
+        data_dir = "filtered_data/small_256/train"  # 筛选后的数据目录
+        txt_path = "filtered_data/small_256/train/labels.txt"  # 小数据集的 .txt 文件路径
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     
 
-    train_pipeline(small_data_dir, small_txt_path, num_epochs=1000, batch_size=8, max_samples=256, save_dir="checkpoints")
+    train_pipeline(data_dir, txt_path, num_epochs=1000, batch_size=16, max_samples=256, save_dir="checkpoints")

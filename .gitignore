@@ -2,3 +2,4 @@
 *.pth
 /filtered_data
 /checkpoints
+/top_images
