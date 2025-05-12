@@ -111,12 +111,6 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     signal.signal(signal.SIGINT, save_and_exit)
     model.train()
 
-    # 定义加权损失函数
-    # def weighted_loss(output, target, weight1=1.0, weight2=1.0):
-    #     # print(f"Output: {output[:, 0]}, {output[:, 1]}")
-    #     loss1 = weight1 * (output[:, 0] - target[:, 0])**2
-    #     loss2 = weight2 * (output[:, 1] - target[:, 1])**2
-    #     return torch.mean(loss1 + loss2)
     def calculate_score(output, target):
         """
         用户定义的评分函数，支持 batch 维度。
@@ -145,7 +139,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
             weight_v * (v_output - v_target) ** 2 +
             weight_kappa * norm_kappa_error ** 2
         )
-        print(f"score: {score}")
+        # print(f"score: {score}")
         score = 10 * score
 
         # 返回总分
@@ -180,12 +174,12 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
 
                 # 将目标数据移动到 GPU
                 batch_trg_data = batch_trg_data.to(device)
-                print(f"batch_trg_data: {batch_trg_data}")
+                # print(f"batch_trg_data: {batch_trg_data}")
                 batch_target_output = batch_target_output.to(device)
-                print(f"batch_target_output: {batch_target_output}")
+                # print(f"batch_target_output: {batch_target_output}")
                 # 前向传播
                 output, _, _ = model(batch_images, batch_trg_data)
-                print(f"output: {output}")
+                # print(f"output: {output}")
                 # 计算加权损失
                 loss = calculate_score(output, batch_target_output)
 
@@ -232,13 +226,13 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     
-    # pretrained_weights_path = "checkpoints/model_final_20250512_110308.pth"  # 指定预训练权重路径
-    pretrained_weights_path = None
+    pretrained_weights_path = "checkpoints/model_final_20250512_113547.pth"  # 指定预训练权重路径
+    # pretrained_weights_path = None
     train_pipeline(data_dir, 
                    txt_path, 
                    num_epochs=1000, 
                    batch_size=16, 
-                   max_samples=16, 
+                   max_samples=256, 
                    save_dir="checkpoints", 
                    pretrained_weights=pretrained_weights_path)
     # train_pipeline(data_dir, txt_path, num_epochs=1000, batch_size=16, max_samples=256, save_dir="checkpoints

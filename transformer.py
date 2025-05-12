@@ -119,40 +119,42 @@ import torch.nn.functional as F
 class EmbeddingImage(nn.Module):
     r"""
     改进版图像嵌入：
+      - 使用 STDCNet 的卷积操作作为特征提取模块
       - Conv Stem 3×: (Stride 2) × 3 -> 特征图下采样 8 倍
       - Overlap Patch Embedding: Conv 3×3 / stride 2 / padding 1
       - 总等效 patch_size = 16
     """
     def __init__(self, config):
         super().__init__()
-        self.image_size  = 640
-        self.patch_size  = 16
-        self.model_dim   = 768
-        self.num_channels= 3
-        self.dropout     = config.dropout
+        self.image_size = 640
+        self.patch_size = 16
+        self.model_dim = 768
+        self.num_channels = 3
+        self.dropout = config.dropout
 
-        # ---------- Conv Stem ----------
-        stem_channels = [64, 128, 256]
-        convs = []
-        in_c = self.num_channels
-        for out_c in stem_channels:
-            convs.extend([
-            nn.Conv2d(in_c, out_c, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.LayerNorm([out_c, self.image_size // (2 ** (stem_channels.index(out_c) + 1)), self.image_size // (2 ** (stem_channels.index(out_c) + 1))]),
-            nn.GELU()
-            ])
-            in_c = out_c
-        self.stem = nn.Sequential(*convs)      # stride 8
+        # ---------- STDCNet 卷积操作 ----------
+        # 定义 STDCNet 的卷积模块
+        self.stdcnet_stem = nn.Sequential(
+            nn.Conv2d(self.num_channels, 32, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+        )  # 输出特征图大小为 [B, 128, 80, 80]
 
         # ---------- Overlap Patch Embedding ----------
-        # stride 2 -> 总 stride 16
+        # 使用卷积进一步下采样到 patch_size = 16
         self.proj = nn.Conv2d(
-            in_channels = stem_channels[-1],
-            out_channels= self.model_dim,
-            kernel_size = 3,
-            stride      = 2,
-            padding     = 1
-        )
+            in_channels=128,
+            out_channels=self.model_dim,
+            kernel_size=3,
+            stride=2,
+            padding=1
+        )  # 输出特征图大小为 [B, 768, 40, 40]
 
         # ---------- 位置编码 ----------
         num_patches = (self.image_size // self.patch_size) ** 2
@@ -161,12 +163,11 @@ class EmbeddingImage(nn.Module):
 
     def forward(self, x):
         # x: [B, 3, 640, 640]
-        x = self.stem(x)           # [B, 256, 80, 80]
-        x = self.proj(x)           # [B, 768, 40, 40]
+        x = self.stdcnet_stem(x)  # [B, 128, 80, 80]
+        x = self.proj(x)          # [B, 768, 40, 40]
         x = x.flatten(2).transpose(1, 2)  # [B, N=1600, 768]
-        x = self.norm(x)                 # LN 在特征维度
-        x = x + self.pos_embed
-        # print(x.shape, self.pos_embed.shape)
+        x = self.norm(x)          # LayerNorm 在特征维度
+        x = x + self.pos_embed    # 加入位置编码
         x = F.dropout(x, p=self.dropout, training=self.training)
         return x
 
