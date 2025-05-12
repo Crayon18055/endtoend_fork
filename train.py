@@ -78,7 +78,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     # 对 target_output_data 的第二个维度进行归一化，第一个维度保持不变
     target_min = -0.3
     target_max = 0.3
-    target_output_data[:, 1] = (target_output_data[:, 1] - target_min) / (target_max - target_min)
+    # target_output_data[:, 1] = (target_output_data[:, 1] - target_min) / (target_max - target_min)
 
     trg_data = trg_data.unsqueeze(-1).to(device)  # 添加最后一维
     target_output_data = target_output_data.to(device)
@@ -126,6 +126,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
         Returns:
             总评分值（float）
         """
+        # output[:, 1] = output[:, 1] * (target_max - target_min) + target_min
         # 提取线速度和角速度
         v_output, w_output = output[:, 0], output[:, 1]  # 模型输出
         v_target, w_target = target[:, 0], target[:, 1]  # 数据集参考值
@@ -140,10 +141,12 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
         # 计算线速度和曲率的加权平方和
         weight_v = 1.0  # 线速度的权重
         weight_kappa = 5.0  # 曲率的权重
-        score = (
+        score = torch.sqrt(
             weight_v * (v_output - v_target) ** 2 +
             weight_kappa * norm_kappa_error ** 2
         )
+        print(f"score: {score}")
+        score = 10 * score
 
         # 返回总分
         return torch.mean(score)
@@ -171,18 +174,20 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
                 batch_images = []
                 for img_file in batch_image_files:
                     img_path = os.path.join(data_dir, "images", img_file)
+                    print(f"Loading image: {img_path}")
                     batch_images.append(load_image(img_path))
                 batch_images = torch.cat(batch_images).to(device)
 
                 # 将目标数据移动到 GPU
                 batch_trg_data = batch_trg_data.to(device)
+                print(f"batch_trg_data: {batch_trg_data}")
                 batch_target_output = batch_target_output.to(device)
-
+                print(f"batch_target_output: {batch_target_output}")
                 # 前向传播
                 output, _, _ = model(batch_images, batch_trg_data)
-                output[:, 1] = output[:, 1] * (target_max - target_min) + target_min
+                print(f"output: {output}")
                 # 计算加权损失
-                loss = 10 * calculate_score(output, batch_target_output)
+                loss = calculate_score(output, batch_target_output)
 
                 # 反向传播和优化
                 optimizer.zero_grad()
@@ -227,7 +232,8 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     
-    pretrained_weights_path = "checkpoints/model_final_20250509_185633.pth"  # 指定预训练权重路径
+    # pretrained_weights_path = "checkpoints/model_final_20250512_110308.pth"  # 指定预训练权重路径
+    pretrained_weights_path = None
     train_pipeline(data_dir, 
                    txt_path, 
                    num_epochs=1000, 

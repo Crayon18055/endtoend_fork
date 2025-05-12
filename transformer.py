@@ -137,9 +137,9 @@ class EmbeddingImage(nn.Module):
         in_c = self.num_channels
         for out_c in stem_channels:
             convs.extend([
-                nn.Conv2d(in_c, out_c, kernel_size=3, stride=2, padding=1, bias=False),
-                nn.BatchNorm2d(out_c),
-                nn.GELU()
+            nn.Conv2d(in_c, out_c, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.LayerNorm([out_c, self.image_size // (2 ** (stem_channels.index(out_c) + 1)), self.image_size // (2 ** (stem_channels.index(out_c) + 1))]),
+            nn.GELU()
             ])
             in_c = out_c
         self.stem = nn.Sequential(*convs)      # stride 8

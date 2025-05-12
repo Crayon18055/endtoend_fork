@@ -71,7 +71,7 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
         # 计算线速度和曲率的加权平方和
         weight_v = 1.0  # 线速度的权重
         weight_kappa = 5.0  # 曲率的权重
-        score = (
+        score = torch.sqrt(
             weight_v * (v_output - v_target) ** 2 +
             weight_kappa * norm_kappa_error ** 2
         )
@@ -84,21 +84,23 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
         _, row = row
         # 加载图片
         src = load_image(image_path).to(device, dtype=torch.float32)
-
+        print("image: ",image_path)
         # 设置 trg 为第 5 和第 6 列
         trg_vector = row[[4, 5]].values.astype(float)
         norm = (trg_vector[0]**2 + trg_vector[1]**2)**0.5
         trg_vector = trg_vector / norm
         trg = torch.tensor(trg_vector, dtype=torch.float32).view(1, 2, 1).to(device)
-
+        print("trg_vector: ",trg_vector)
         # 前向推理
         with torch.no_grad():
             output, _, _ = model(src, trg)
-            output = output * (target_max - target_min) + target_min
+            # output = output * (target_max - target_min) + target_min
             # output[:, 1] = output[:, 1] * (target_max - target_min) + target_min
         # 计算评分（评分函数由用户定义）
         
         target_output = row[[2, 3]].values.astype(float)
+        print("target_output: ",target_output)
+        print("output: ",output.squeeze().cpu().numpy())
         batch_target_output = torch.tensor(target_output, dtype=torch.float32).view(1, 2, 1).to(device)
         loss = calculate_score_1(output, batch_target_output)
         print(f"Loss: {loss}")
@@ -172,7 +174,7 @@ def calculate_score(output, target):
     weight_kappa = 5.0  # 曲率的权重
     # print("v:", weight_v * (v_output - v_target) ** 2)
     # print("k:", weight_kappa * norm_kappa_error ** 2)
-    score = (
+    score = np.sqrt(
         weight_v * (v_output - v_target) ** 2 +
         weight_kappa * norm_kappa_error ** 2
     )
@@ -190,8 +192,8 @@ if __name__ == "__main__":
     # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
     data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    # checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250509_185633.pth"
+    checkpoint_path = get_last_checkpoint()
+    # checkpoint_path = "checkpoints/model_final_20250509_185633.pth"
     normparams_name = os.path.splitext(os.path.basename(checkpoint_path))[0].replace("model_final_", "norm_params_")
     norm_para_path = os.path.join("checkpoints", "norm_params", f"{normparams_name}.pth")
 
