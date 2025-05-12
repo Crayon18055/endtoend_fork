@@ -37,7 +37,8 @@ def test_model(checkpoint_path, norm_para_path, selected_images, selected_rows):
     # 加载模型
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    model.eval()
+    model.train()
+    # model.eval()
 
     # 加载归一化参数
     norm_params = torch.load(norm_para_path, map_location=device)

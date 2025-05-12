@@ -168,7 +168,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
                 batch_images = []
                 for img_file in batch_image_files:
                     img_path = os.path.join(data_dir, "images", img_file)
-                    print(f"Loading image: {img_path}")
+                    # print(f"Loading image: {img_path}")
                     batch_images.append(load_image(img_path))
                 batch_images = torch.cat(batch_images).to(device)
 
@@ -226,8 +226,8 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     
-    pretrained_weights_path = "checkpoints/model_final_20250512_113547.pth"  # 指定预训练权重路径
-    # pretrained_weights_path = None
+    # pretrained_weights_path = "checkpoints/model_final_20250512_113547.pth"  # 指定预训练权重路径
+    pretrained_weights_path = None
     train_pipeline(data_dir, 
                    txt_path, 
                    num_epochs=1000, 
