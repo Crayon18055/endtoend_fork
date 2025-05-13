@@ -103,8 +103,8 @@ if __name__ == "__main__":
 
     #*********************************************************************************
     # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     checkpoint_path = get_last_checkpoint()
     # checkpoint_path = "checkpoints/model_final_20250507_125438.pth"  # 模型权重路径

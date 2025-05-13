@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from Visualizer.visualizer import get_local
 
 class MultiHeadAttention(nn.Module):
     def __init__(
@@ -50,7 +50,7 @@ class MultiHeadAttention(nn.Module):
         attn_output = attn_output.view(*concat_attn_output_shape)
         attn_output = self.out_proj(attn_output)
         return attn_output, attn_weights
-
+    @get_local('attn_weights')
     def forward(
             self,
             query: torch.Tensor,

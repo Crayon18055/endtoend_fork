@@ -2,12 +2,36 @@ import torch
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from torchvision import transforms
-from transformer import Transformer
 from config import config_dict
 from get_sample_in_dir import get_data_from_dir
 import os
 import numpy as np
+# from Visualizer.visualizer import get_local
+# get_local.activate() # 激活装饰器
+from transformer import Transformer
 
+
+# def visualize_average_attention(att_map):
+#     A = torch.tensor(att_map[0]).mean(dim=0)  # 保险起见先转成 tensor
+#     # 平均多个 head，得到 (1600, 1600)
+    
+#     # 检查是否已经存在图形窗口
+#     if not hasattr(visualize_average_attention, 'fig'):
+#         visualize_average_attention.fig = plt.figure(figsize=(8, 8))
+#         visualize_average_attention.ax = visualize_average_attention.fig.add_subplot(111)
+#         visualize_average_attention.im = visualize_average_attention.ax.imshow(A[0].reshape(40, 40), cmap='hot')
+#         visualize_average_attention.fig.colorbar(visualize_average_attention.im)
+#         visualize_average_attention.ax.set_title("Average Attention Map (Token 0)")
+#         plt.ion()  # 打开交互模式
+#         # plt.show()
+#     else:
+#         # 更新图像数据
+#         visualize_average_attention.im.set_data(A[0].reshape(40, 40))
+#         visualize_average_attention.im.set_clim(vmin=A[0].min(), vmax=A[0].max())
+#         visualize_average_attention.fig.canvas.draw()
+#         visualize_average_attention.fig.canvas.flush_events()
+    
+#     plt.show(block=True)  # 短暂暂停以允许图形更新
 
 def load_image(image_path):
     transform = transforms.Compose([
@@ -33,6 +57,7 @@ def get_last_checkpoint():
 
 def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir):
     # 配置设备
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 加载模型
@@ -40,6 +65,7 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     model.train()
     # model.eval()
+
 
     # 加载归一化参数
     norm_params = torch.load(norm_para_path, map_location=device)
@@ -115,6 +141,11 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
     avg_score = total_score / len(scores)
     # print(f"Total Score: {total_score}")
     # print(f"Average Score: {avg_score}")
+
+    # cache = get_local.cache # ->  {'your_attention_function': [attention_map]}
+    # print(list(cache.keys()))
+    # attention_maps = cache['MultiHeadAttention.forward']
+    # visualize_average_attention(attention_maps[0])
 
     # 选取评分最高的 5% 图片
     scores.sort(key=lambda x: x[1], reverse=True)
@@ -195,8 +226,8 @@ if __name__ == "__main__":
     data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    # checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250513_091916.pth"
+    checkpoint_path = get_last_checkpoint()
+    # checkpoint_path = "checkpoints/model_final_20250513_091916.pth"
     normparams_name = os.path.splitext(os.path.basename(checkpoint_path))[0].replace("model_final_", "norm_params_")
     norm_para_path = os.path.join("checkpoints", "norm_params", f"{normparams_name}.pth")
 
