@@ -55,23 +55,21 @@ def get_last_checkpoint():
     return checkpoint_path
 
 
-def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir):
+def evaluate_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cuda_device=1):
     # 配置设备
-    
+    save_dir = "top_images"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 加载模型
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    model.train()
+
+    if modelmode == "train":
+        model.train()
+    else:
+        model.eval()    
     # model.eval()
-
-
-    # 加载归一化参数
-    norm_params = torch.load(norm_para_path, map_location=device)
-    target_min = norm_params["target_min"]
-    target_max = norm_params["target_max"]
-    print(f"target_min: {target_min}, target_max: {target_max}")
+    selected_images, selected_rows = get_data_from_dir(data_dir, num_samples=None, max_samples=max_samples)
 
     # 初始化评分列表
     scores = []
@@ -107,7 +105,7 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
         return torch.mean(score)
 
     # 遍历所有图片
-    for image_path, row in zip(image_paths, rows.iterrows()):
+    for image_path, row in zip(selected_images, selected_rows.iterrows()):
         _, row = row
         # 加载图片
         src = load_image(image_path).to(device, dtype=torch.float32)
@@ -121,9 +119,6 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
         # 前向推理
         with torch.no_grad():
             output, _, _ = model(src, trg)
-            # output = output * (target_max - target_min) + target_min
-            # output[:, 1] = output[:, 1] * (target_max - target_min) + target_min
-        # 计算评分（评分函数由用户定义）
         
         target_output = row[[2, 3]].values.astype(float)
         print("target_output: ",target_output)
@@ -139,13 +134,6 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
     # 计算总评分和平均分
     total_score = sum([s[1] for s in scores])
     avg_score = total_score / len(scores)
-    # print(f"Total Score: {total_score}")
-    # print(f"Average Score: {avg_score}")
-
-    # cache = get_local.cache # ->  {'your_attention_function': [attention_map]}
-    # print(list(cache.keys()))
-    # attention_maps = cache['MultiHeadAttention.forward']
-    # visualize_average_attention(attention_maps[0])
 
     # 选取评分最高的 5% 图片
     scores.sort(key=lambda x: x[1], reverse=True)
@@ -175,7 +163,7 @@ def evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
         save_path = os.path.join(save_dir, os.path.basename(image_path))
         image.save(save_path)
     print("Saved top image")
-
+    print(f"Total Score: {total_score}, Average Score: {avg_score},Number of images: {len(selected_images)}")
     return total_score, avg_score
 
 
@@ -228,19 +216,20 @@ if __name__ == "__main__":
     #**********************************************************************************
     checkpoint_path = get_last_checkpoint()
     # checkpoint_path = "checkpoints/model_final_20250513_091916.pth"
-    normparams_name = os.path.splitext(os.path.basename(checkpoint_path))[0].replace("model_final_", "norm_params_")
-    norm_para_path = os.path.join("checkpoints", "norm_params", f"{normparams_name}.pth")
 
     if data_source == "fulldata":
-        image_paths, rows = get_data_from_dir(full_data_dir)
+        data_dir = full_data_dir
     elif data_source == "traindata":
-        image_paths, rows = get_data_from_dir(train_data_dir)
+        data_dir = train_data_dir
     elif data_source == "areadata":
-        image_paths, rows = get_data_from_dir(area_data_dir)
+        data_dir = area_data_dir
     else:
         raise ValueError(f"Invalid data source: {data_source}")
 
     # 评估模型
-    save_dir = "top_images"
-    total_score, avg_score = evaluate_model(checkpoint_path, norm_para_path, image_paths, rows, save_dir)
-    print(f"Total Score: {total_score}, Average Score: {avg_score},Number of images: {len(image_paths)}")
+    total_score, avg_score = evaluate_model(checkpoint_path, 
+                                            data_dir, 
+                                            max_samples=16,
+                                            modelmode="train",
+                                            cuda_device=1)
+    

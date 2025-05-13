@@ -9,27 +9,6 @@ from Visualizer.visualizer import get_local
 get_local.activate() # 激活装饰器
 from transformer import Transformer
 import numpy as np
-def visualize_average_attention(att_map):
-    A = torch.tensor(att_map[0]).mean(dim=0)  # 保险起见先转成 tensor
-    # 平均多个 head，得到 (1600, 1600)
-    
-    # 检查是否已经存在图形窗口
-    if not hasattr(visualize_average_attention, 'fig'):
-        visualize_average_attention.fig = plt.figure(figsize=(8, 8))
-        visualize_average_attention.ax = visualize_average_attention.fig.add_subplot(111)
-        visualize_average_attention.im = visualize_average_attention.ax.imshow(A[0].reshape(40, 40), cmap='hot')
-        visualize_average_attention.fig.colorbar(visualize_average_attention.im)
-        visualize_average_attention.ax.set_title("Average Attention Map (Token 0)")
-        plt.ion()  # 打开交互模式
-        # plt.show()
-    else:
-        # 更新图像数据
-        visualize_average_attention.im.set_data(A[0].reshape(40, 40))
-        visualize_average_attention.im.set_clim(vmin=A[0].min(), vmax=A[0].max())
-        visualize_average_attention.fig.canvas.draw()
-        visualize_average_attention.fig.canvas.flush_events()
-    
-    plt.show(block=True)  # 短暂暂停以允许图形更新
 
 def load_image(image_path):
     transform = transforms.Compose([
@@ -52,21 +31,24 @@ def get_last_checkpoint():
     return checkpoint_path
 
 
-def test_model(checkpoint_path, norm_para_path, selected_images, selected_rows):
+def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cuda_device=1):
     # 配置设备
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if cuda_device == 0:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
     # 加载模型
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    model.train()
-    # model.eval()
 
-    # 加载归一化参数
-    norm_params = torch.load(norm_para_path, map_location=device)
-    target_min = norm_params["target_min"]
-    target_max = norm_params["target_max"]
-    print(f"target_min: {target_min}, target_max: {target_max}")
+    if modelmode == "train":
+        model.train()
+    else:
+        model.eval()
+
+    selected_images, selected_rows = get_data_from_dir(data_dir, num_samples=8, max_samples=max_samples)
+
 
     # 初始化窗口
     fig, axes = plt.subplots(2, 4, figsize=(16, 8))  # 用于显示叠加图像
@@ -162,17 +144,19 @@ if __name__ == "__main__":
     #**********************************************************************************
     # checkpoint_path = get_last_checkpoint()
     checkpoint_path = "checkpoints/model_final_20250513_091916.pth"  # 模型权重路径
-    normparams_name = os.path.splitext(os.path.basename(checkpoint_path))[0].replace("model_final_", "norm_params_")
-    norm_para_path = os.path.join("checkpoints","norm_params", f"{normparams_name}.pth")
-    # print(f"norm_para_path: {norm_para_path}")
+    
 
     if data_source == "fulldata":
-        selected_images, selected_rows = get_data_from_dir(full_data_dir, num_samples)
+        data_dir = full_data_dir
     elif data_source == "traindata":
-        selected_images, selected_rows = get_data_from_dir(train_data_dir, num_samples)
+        data_dir = train_data_dir
     elif data_source == "areadata":
-        selected_images, selected_rows = get_data_from_dir(area_data_dir, num_samples)
+        data_dir = area_data_dir
     else:
         raise ValueError(f"Invalid data source: {data_source}")
 
-    test_model(checkpoint_path, norm_para_path, selected_images, selected_rows)
+    test_model(checkpoint_path, 
+               data_dir, 
+               max_samples=16, 
+               modelmode="train",
+               cuda_device=1)

@@ -2,7 +2,7 @@ import os
 import random
 import pandas as pd
 
-def get_data_from_dir(data_dir, num_samples=None):
+def get_data_from_dir(data_dir, num_samples=None, max_samples=256):
     """
     从指定目录中获取数据。
     如果未指定 num_samples，则返回所有数据。
@@ -29,7 +29,8 @@ def get_data_from_dir(data_dir, num_samples=None):
 
     # 加载 .txt 文件为 DataFrame
     df = pd.read_csv(selected_txt_file, header=None, delimiter=',')
-    df = df.head(256)  # 限制读取的样本数量
+    if max_samples is not None and max_samples > 0:
+        df = df.head(max_samples)  # 限制读取的样本数量
 
     # 如果未指定 num_samples，则返回所有数据
     if num_samples is None:

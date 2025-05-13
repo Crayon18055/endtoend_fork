@@ -19,35 +19,27 @@ def load_image(image_path):
     return image.unsqueeze(0)  # 添加 batch 维度
 
 
-def get_last_checkpoint():
-    checkpoint_dir = "checkpoints"  # 假设权重文件保存在 "checkpoints" 目录下
-    if not os.path.exists(checkpoint_dir):
-        raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_dir}")
-    checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
-    if not checkpoint_files:
-        raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
-    checkpoint_path = max(checkpoint_files, key=os.path.getmtime)  # 按修改时间选择最新的文件
-    return checkpoint_path
-
-
-def test_random_images_with_circle_trg(checkpoint_path, norm_para_path, data_dir, num_samples=8, num_points=8):
+def test_random_images_with_circle_trg(checkpoint_path, 
+                                       data_dir,  
+                                       max_samples=256, 
+                                       modelmode="train",
+                                       cuda_device=1):
     # 配置设备
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if cuda_device == 0:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
     # 加载模型
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    model.train()
-    # model.eval()
-
-    # 加载归一化参数
-    norm_params = torch.load(norm_para_path, map_location=device)
-    target_min = norm_params["target_min"]
-    target_max = norm_params["target_max"]
-    print(f"target_min: {target_min}, target_max: {target_max}")
+    if modelmode == "train":
+        model.train()
+    else:
+        model.eval()
 
     # 随机获取图片和对应数据
-    selected_images, selected_rows = get_data_from_dir(data_dir, num_samples)
+    selected_images, selected_rows = get_data_from_dir(data_dir, 8, max_samples)
 
     # 初始化绘图
     fig, axes = plt.subplots(2, 4, figsize=(16, 8))
@@ -65,8 +57,8 @@ def test_random_images_with_circle_trg(checkpoint_path, norm_para_path, data_dir
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
 
         # 在单位圆上生成 trg 点
-        for j in range(num_points):
-            angle = math.pi * j / (num_points - 1)- math.pi / 2  # 从上方开始
+        for j in range(9):
+            angle = math.pi * j / (9 - 1)- math.pi / 2  # 从上方开始
             trg_vector = [math.cos(angle), math.sin(angle)]
             trg = torch.tensor(trg_vector, dtype=torch.float32).view(1, 2, 1).to(device)
 
@@ -103,14 +95,11 @@ if __name__ == "__main__":
 
     #*********************************************************************************
     # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     checkpoint_path = get_last_checkpoint()
     # checkpoint_path = "checkpoints/model_final_20250507_125438.pth"  # 模型权重路径
-    normparams_name = os.path.splitext(os.path.basename(checkpoint_path))[0].replace("model_final_", "norm_params_")
-    norm_para_path = os.path.join("checkpoints","norm_params", f"{normparams_name}.pth")
-    # print(f"norm_para_path: {norm_para_path}")
 
     if data_source == "fulldata":
         data_dir = full_data_dir
@@ -121,4 +110,8 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     # 测试随机图片
-    test_random_images_with_circle_trg(checkpoint_path, norm_para_path, data_dir, num_samples=8, num_points=9)
+    test_random_images_with_circle_trg(checkpoint_path, 
+                                       data_dir, 
+                                       max_samples=256, 
+                                       modelmode="train",
+                                       cuda_device=1)
