@@ -57,7 +57,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
             raise FileNotFoundError(f"Pretrained weights not found at {pretrained_weights}")
 
     # 定义损失函数和优化器
-    criterion = nn.MSELoss()
+    # criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
     # 创建保存权重的目录
@@ -68,20 +68,15 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     if max_samples is not None:
         df = df.head(n=max_samples)
 
-    image_files = df.iloc[:, 6].astype(int).astype(str) + ".png"
+    image_files = df.iloc[:, 6].astype(int).astype(str) + ".jpg"  # 假设第 7 列为图片文件名
     trg = df.iloc[:, [4, 5]].values.astype(float)
     trg_data = torch.tensor(trg, dtype=torch.float32)
     trg_data = normalize_vector(trg_data)
     target_output = df.iloc[:, [2, 3]].values.astype(float)
     target_output_data = torch.tensor(target_output, dtype=torch.float32)
 
-    # 对 target_output_data 的第二个维度进行归一化，第一个维度保持不变
-    target_min = -0.3
-    target_max = 0.3
-    # target_output_data[:, 1] = (target_output_data[:, 1] - target_min) / (target_max - target_min)
-
-    trg_data = trg_data.unsqueeze(-1).to(device)  # 添加最后一维
-    target_output_data = target_output_data.to(device)
+    trg_data = trg_data.unsqueeze(-1) # 添加最后一维
+    # target_output_data = target_output_data
 
     # 初始化实时绘图
     plt.ion()
@@ -99,11 +94,6 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
         # 保存最终模型权重
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         final_checkpoint_path = os.path.join(save_dir, f"model_final_{timestamp}.pth")
-        os.makedirs(os.path.join(save_dir, "norm_params"), exist_ok=True)
-        norm_params_path = os.path.join(save_dir, "norm_params", f"norm_params_{timestamp}.pth")
-
-        torch.save({"target_min": target_min, "target_max": target_max}, norm_params_path)
-        print(f"Normalization parameters saved to {norm_params_path}")
         torch.save(model.state_dict(), final_checkpoint_path)
         print(f"Final model saved to {final_checkpoint_path}")
         exit(0)
@@ -225,18 +215,18 @@ if __name__ == "__main__":
         data_dir = "filtered_data/small_256/train"  # 筛选后的数据目录
         txt_path = "filtered_data/small_256/train/labels.txt"  # 小数据集的 .txt 文件路径
     elif data_source == "areadata":
-        data_dir = "output_images"  # 筛选后的数据目录
-        txt_path = "filtered_data/small_256/train/labels.txt"  # 小数据集的 .txt 文件路径
+        data_dir = "filtered_data/ground_mask_all/train"  # 筛选后的数据目录
+        txt_path = "filtered_data/ground_mask_all/train/labels.txt"  # 小数据集的 .txt 文件路径
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     
-    pretrained_weights_path = "checkpoints/model_final_20250512_191423.pth"  # 指定预训练权重路径
-    # pretrained_weights_path = None
+    # pretrained_weights_path = "checkpoints/model_final_20250512_191423.pth"  # 指定预训练权重路径
+    pretrained_weights_path = None
     train_pipeline(data_dir, 
                    txt_path, 
                    num_epochs=1000, 
                    batch_size=16, 
-                   max_samples=256, 
+                   max_samples=None, 
                    save_dir="checkpoints", 
                    pretrained_weights=pretrained_weights_path)
     # train_pipeline(data_dir, txt_path, num_epochs=1000, batch_size=16, max_samples=256, save_dir="checkpoints

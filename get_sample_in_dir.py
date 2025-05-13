@@ -29,7 +29,7 @@ def get_data_from_dir(data_dir, num_samples=None):
 
     # 加载 .txt 文件为 DataFrame
     df = pd.read_csv(selected_txt_file, header=None, delimiter=',')
-    df = df.head(16)  # 限制读取的样本数量
+    df = df.head(256)  # 限制读取的样本数量
 
     # 如果未指定 num_samples，则返回所有数据
     if num_samples is None:

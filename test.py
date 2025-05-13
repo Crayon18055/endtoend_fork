@@ -106,7 +106,7 @@ def test_model(checkpoint_path, norm_para_path, selected_images, selected_rows):
         print("shape of attention_map_avg:", attention_map_avg.shape)
 
         # 转换为 Tensor（如果需要进一步处理）
-        attention_map = attention_map_avg.mean(dim=0).mean(dim=0)  # 取平均值，得到 (1600, 1600)
+        attention_map = attention_map_avg.mean(dim=0).mean(dim=0).mean(dim=0)  # 取平均值，得到 (1600, 1600)
 
         # 打印最终注意力图的形状
         print("Final attention_map shape:", attention_map.shape)
@@ -129,13 +129,13 @@ def test_model(checkpoint_path, norm_para_path, selected_images, selected_rows):
         image_np = np.array(image)
 
         # 获取注意力图并调整大小
-        attention_image = attention_map[0].reshape(40, 40).cpu().numpy()
+        attention_image = attention_map.reshape(40, 40).cpu().numpy()
         attention_image = attention_image[::-1, ::-1]  # 旋转180度
         attention_image_resized = np.kron(attention_image, np.ones((16, 16)))  # 将注意力图放大到与原图相同大小
 
         # 叠加原图和注意力图
         axes[i].imshow(image_np)  # 显示原图
-        im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.5)  # 叠加注意力图，设置透明度
+        im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.6)  # 叠加注意力图，设置透明度
         axes[i].set_title(f"Image {i + 1}")
         axes[i].axis("off")
 
