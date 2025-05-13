@@ -185,16 +185,18 @@ def calculate_score(output, target):
 
 if __name__ == "__main__":
     # 配置参数
-    full_data_dir = "filtered_data/all/train"  # 数据目录
+    full_data_dir = "filtered_data/all/val"  # 数据目录
     train_data_dir = "filtered_data/small_256/train"  # 数据目录
+    area_data_dir = "output_images"  # 数据目录
 
     # 数据来源
     #*********************************************************************************
     # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
     data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    checkpoint_path = get_last_checkpoint()
-    # checkpoint_path = "checkpoints/model_final_20250509_185633.pth"
+    # checkpoint_path = get_last_checkpoint()
+    checkpoint_path = "checkpoints/model_final_20250513_091916.pth"
     normparams_name = os.path.splitext(os.path.basename(checkpoint_path))[0].replace("model_final_", "norm_params_")
     norm_para_path = os.path.join("checkpoints", "norm_params", f"{normparams_name}.pth")
 
@@ -202,6 +204,8 @@ if __name__ == "__main__":
         image_paths, rows = get_data_from_dir(full_data_dir)
     elif data_source == "traindata":
         image_paths, rows = get_data_from_dir(train_data_dir)
+    elif data_source == "areadata":
+        image_paths, rows = get_data_from_dir(area_data_dir)
     else:
         raise ValueError(f"Invalid data source: {data_source}")
 

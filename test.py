@@ -97,11 +97,14 @@ if __name__ == "__main__":
     # 配置参数
     full_data_dir = "filtered_data/all/train"  # 数据目录
     train_data_dir = "filtered_data/small_256/train"  # 数据目录
+    area_data_dir = "output_images"  # 数据目录
+
     num_samples = 8  # 随机选择的样本数量
 
     #*********************************************************************************
     # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
     data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     checkpoint_path = get_last_checkpoint()
     # checkpoint_path = "checkpoints/model_final_20250507_125438.pth"  # 模型权重路径
@@ -113,6 +116,8 @@ if __name__ == "__main__":
         selected_images, selected_rows = get_data_from_dir(full_data_dir, num_samples)
     elif data_source == "traindata":
         selected_images, selected_rows = get_data_from_dir(train_data_dir, num_samples)
+    elif data_source == "areadata":
+        selected_images, selected_rows = get_data_from_dir(area_data_dir, num_samples)
     else:
         raise ValueError(f"Invalid data source: {data_source}")
 

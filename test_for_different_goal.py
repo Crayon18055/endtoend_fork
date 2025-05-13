@@ -37,7 +37,8 @@ def test_random_images_with_circle_trg(checkpoint_path, norm_para_path, data_dir
     # 加载模型
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    model.eval()
+    model.train()
+    # model.eval()
 
     # 加载归一化参数
     norm_params = torch.load(norm_para_path, map_location=device)
@@ -98,10 +99,12 @@ if __name__ == "__main__":
      # 配置参数
     full_data_dir = "filtered_data/all/val"  # 数据目录
     train_data_dir = "filtered_data/small_256/train"  # 数据目录
+    area_data_dir = "output_images"  # 数据目录
 
     #*********************************************************************************
     # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
     data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     checkpoint_path = get_last_checkpoint()
     # checkpoint_path = "checkpoints/model_final_20250507_125438.pth"  # 模型权重路径
@@ -113,6 +116,8 @@ if __name__ == "__main__":
         data_dir = full_data_dir
     elif data_source == "traindata":
         data_dir = train_data_dir
+    elif data_source == "areadata":
+        data_dir = area_data_dir
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     # 测试随机图片

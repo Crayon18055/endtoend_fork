@@ -41,7 +41,7 @@ def normalize_vector(data):
 # 持续训练流程
 def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints", pretrained_weights=None):
     # 配置
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # 初始化模型
@@ -68,7 +68,7 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     if max_samples is not None:
         df = df.head(n=max_samples)
 
-    image_files = df.iloc[:, 6].astype(int).astype(str) + ".jpg"
+    image_files = df.iloc[:, 6].astype(int).astype(str) + ".png"
     trg = df.iloc[:, [4, 5]].values.astype(float)
     trg_data = torch.tensor(trg, dtype=torch.float32)
     trg_data = normalize_vector(trg_data)
@@ -215,7 +215,8 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
 if __name__ == "__main__":
     #*********************************************************************************
     # data_source = "smalldata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     if data_source == "fulldata":
         data_dir = "filtered_data/all/train"  # 筛选后的数据目录
@@ -223,11 +224,14 @@ if __name__ == "__main__":
     elif data_source == "smalldata":
         data_dir = "filtered_data/small_256/train"  # 筛选后的数据目录
         txt_path = "filtered_data/small_256/train/labels.txt"  # 小数据集的 .txt 文件路径
+    elif data_source == "areadata":
+        data_dir = "output_images"  # 筛选后的数据目录
+        txt_path = "filtered_data/small_256/train/labels.txt"  # 小数据集的 .txt 文件路径
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     
-    # pretrained_weights_path = "checkpoints/model_final_20250512_113547.pth"  # 指定预训练权重路径
-    pretrained_weights_path = None
+    pretrained_weights_path = "checkpoints/model_final_20250512_191423.pth"  # 指定预训练权重路径
+    # pretrained_weights_path = None
     train_pipeline(data_dir, 
                    txt_path, 
                    num_epochs=1000, 
