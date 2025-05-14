@@ -18,6 +18,15 @@ def load_image(image_path):
     image = transform(image)
     return image.unsqueeze(0)  # 添加 batch 维度
 
+def get_last_checkpoint():
+    checkpoint_dir = "checkpoints"  # 假设权重文件保存在 "checkpoints" 目录下
+    if not os.path.exists(checkpoint_dir):
+        raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_dir}")
+    checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
+    if not checkpoint_files:
+        raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
+    checkpoint_path = max(checkpoint_files, key=os.path.getmtime)  # 按修改时间选择最新的文件
+    return checkpoint_path
 
 def test_random_images_with_circle_trg(checkpoint_path, 
                                        data_dir,  

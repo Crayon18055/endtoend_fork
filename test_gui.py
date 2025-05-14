@@ -56,12 +56,22 @@ def run_test():
         return
 
     # 配置数据集路径
-    if dataset == "Full Data":
+    if dataset == "Full Data(train)":
         data_dir = "filtered_data/all/train"
-    elif dataset == "Train Data":
+    elif dataset == "Full Data(val)":
+        data_dir = "filtered_data/all/val"
+    elif dataset == "Small Data(train)":
         data_dir = "filtered_data/small_256/train"
-    elif dataset == "Area Data":
-        data_dir = "output_images"
+    elif dataset == "Small Data(val)":
+        data_dir = "filtered_data/small_256/val"
+    elif dataset == "Full Masked Data(train)":
+        data_dir = "filtered_data/ground_mask_all/train"
+    elif dataset == "Full Masked Data(val)":
+        data_dir = "filtered_data/ground_mask_all/val"
+    elif dataset == "Small Masked Data(train)":
+        data_dir = "filtered_data/ground_mask_256/train"
+    elif dataset == "Small Masked Data(val)":
+        data_dir = "filtered_data/ground_mask_256/val"
     else:
         messagebox.showerror("错误", "无效的数据集选择！")
         return
@@ -76,9 +86,9 @@ def run_test():
         messagebox.showerror("错误", f"无法找到检查点文件或归一化参数：\n{e}")
         return
 
-
-    print(f"数据集路径: {data_dir}")
+    print(f"测试方式: {test_method}")
     print(f"权重文件路径: {checkpoint_path}") 
+    print(f"数据集路径: {data_dir}")
     print(f"最大样本数: {max_samples}")
     print(f"模型模式: {model_mode}")
     print(f"CUDA设备: {cuda_device}")
@@ -108,9 +118,16 @@ font_large = ("Arial", 20)  # 字体为 Arial，大小为 20
 dataset_label = tk.Label(root, text="Choose Dataset：", font=font_large)
 dataset_label.grid(row=0, column=0, padx=10, pady=10)
 
-dataset_var = tk.StringVar(value="Full Data")  # 默认选择 Full Data
+dataset_var = tk.StringVar(value="Full Data(train)")  # 默认选择 Full Data
 dataset_combobox = ttk.Combobox(root, textvariable=dataset_var, state="readonly", font=font_large, width=30)
-dataset_combobox["values"] = ("Full Data", "Train Data", "Area Data")
+dataset_combobox["values"] = ("Full Data(train)", 
+                              "Full Data(val)", 
+                              "Small Data(train)", 
+                              "Small Data(val)",
+                              "Full Masked Data(train)", 
+                              "Full Masked Data(val)", 
+                              "Small Masked Data(train)", 
+                              "Small Masked Data(val)")
 dataset_combobox.grid(row=0, column=1, padx=10, pady=10)
 
 # 测试方式选择
