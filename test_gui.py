@@ -5,6 +5,72 @@ from test import test_model
 from test_for_different_goal import test_random_images_with_circle_trg
 from evacuate import evaluate_model
 import threading
+import time
+
+class TestController:
+    def __init__(self):
+        self.test_thread = None
+        self.running = False
+        self.stop_event = threading.Event()
+
+    def start_test(self, test_method, checkpoint_path, data_dir, max_samples, model_mode, cuda_device, callback):
+        if self.running:
+            messagebox.showwarning("警告", "已有测试正在运行，请等待完成或停止当前测试")
+            return False
+        
+        self.stop_event.clear()
+        self.running = True
+        
+        self.test_thread = threading.Thread(
+            target=self._execute_test,
+            args=(test_method, checkpoint_path, data_dir, max_samples, model_mode, cuda_device, callback)
+        )
+        self.test_thread.daemon = True
+        self.test_thread.start()
+        return True
+
+    def _execute_test(self, test_method, checkpoint_path, data_dir, max_samples, model_mode, cuda_device, callback):
+        try:
+            if self.stop_event.is_set():
+                return
+                
+            if test_method == "Circle Target Test":
+                test_random_images_with_circle_trg(
+                    checkpoint_path, data_dir, 
+                    max_samples=max_samples, 
+                    modelmode=model_mode, 
+                    cuda_device=cuda_device
+                )
+            elif test_method == "Evacuate Test":
+                evaluate_model(
+                    checkpoint_path, data_dir, 
+                    max_samples=max_samples, 
+                    modelmode=model_mode, 
+                    cuda_device=cuda_device
+                )
+            elif test_method == "Test":
+                test_model(
+                    checkpoint_path, data_dir, 
+                    max_samples=max_samples, 
+                    modelmode=model_mode, 
+                    cuda_device=cuda_device
+                )
+        except Exception as e:
+            callback(False, f"测试过程中发生错误:\n{e}")
+        finally:
+            self.running = False
+            callback(True, "测试完成")
+
+    def stop_test(self):
+        if self.running and self.test_thread is not None:
+            self.stop_event.set()
+            self.test_thread.join(timeout=2)
+            self.running = False
+            return True
+        return False
+
+    def is_running(self):
+        return self.running
 
 def get_all_checkpoints():
     """获取所有权重文件的路径"""
@@ -14,191 +80,219 @@ def get_all_checkpoints():
     return [f for f in os.listdir(checkpoint_dir) if f.endswith(".pth")]
 
 def get_last_checkpoint():
-    checkpoint_dir = "checkpoints"  # 假设权重文件保存在 "checkpoints" 目录下
+    checkpoint_dir = "checkpoints"
     if not os.path.exists(checkpoint_dir):
         raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_dir}")
     checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
     if not checkpoint_files:
         raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
-    checkpoint_path = max(checkpoint_files, key=os.path.getmtime)  # 按修改时间选择最新的文件
+    checkpoint_path = max(checkpoint_files, key=os.path.getmtime)
     return checkpoint_path
 
-def execute_test(test_method, checkpoint_path, data_dir, max_samples, model_mode, cuda_device):
-    try:
-        if test_method == "Circle Target Test":
-            test_random_images_with_circle_trg(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
-        elif test_method == "Evacuate Test":
-            evaluate_model(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
-        elif test_method == "Test":
-            test_model(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
-    except Exception as e:
-        # 使用after方法在GUI线程中显示错误
-        root.after(0, lambda: messagebox.showerror("错误", f"测试过程中发生错误:\n{e}"))
-
-def run_test():
-    # 获取用户选择的参数
-    dataset = dataset_var.get()
-    test_method = test_method_var.get()
-    checkpoint = checkpoint_var.get()
-    max_samples = max_samples_var.get()
-    model_mode = model_mode_var.get()
-    cuda_device = cuda_device_var.get()
-
-    # 检查用户是否选择了有效选项
-    if not dataset or not test_method or not checkpoint:
-        messagebox.showerror("错误", "请选择数据集、测试方式和权重文件！")
-        return
+class Application(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Test GUI")
+        self.geometry("800x650")
+        
+        # 测试控制器
+        self.test_controller = TestController()
+        
+        # 初始化UI
+        self.setup_ui()
+        
+        # 状态变量
+        self.test_in_progress = False
+        
+    def setup_ui(self):
+        font_large = ("Arial", 20)
+        
+        # 数据集选择
+        tk.Label(self, text="Choose Dataset：", font=font_large).grid(row=0, column=0, padx=10, pady=10)
+        self.dataset_var = tk.StringVar(value="Full Data(train)")
+        self.dataset_combobox = ttk.Combobox(self, textvariable=self.dataset_var, state="readonly", font=font_large, width=30)
+        self.dataset_combobox["values"] = (
+            "Full Data(train)", "Full Data(val)", 
+            "Small Data(train)", "Small Data(val)",
+            "Full Masked Data(train)", "Full Masked Data(val)", 
+            "Small Masked Data(train)", "Small Masked Data(val)"
+        )
+        self.dataset_combobox.grid(row=0, column=1, padx=10, pady=10)
+        
+        # 测试方式选择
+        tk.Label(self, text="Choose Test Method：", font=font_large).grid(row=1, column=0, padx=10, pady=10)
+        self.test_method_var = tk.StringVar(value="Test")
+        self.test_method_combobox = ttk.Combobox(self, textvariable=self.test_method_var, state="readonly", font=font_large, width=30)
+        self.test_method_combobox["values"] = ("Circle Target Test", "Evacuate Test", "Test")
+        self.test_method_combobox.grid(row=1, column=1, padx=10, pady=10)
+        
+        # 权重文件选择
+        tk.Label(self, text="Choose Checkpoint：", font=font_large).grid(row=2, column=0, padx=10, pady=10)
+        self.checkpoint_var = tk.StringVar(value="Latest Checkpoint")
+        self.checkpoint_combobox = ttk.Combobox(self, textvariable=self.checkpoint_var, state="readonly", font=font_large, width=30)
+        self.update_checkpoint_list()
+        self.checkpoint_combobox.grid(row=2, column=1, padx=10, pady=10)
+        
+        # 最大样本数选择
+        tk.Label(self, text="Max Samples：", font=font_large).grid(row=3, column=0, padx=10, pady=10)
+        self.max_samples_var = tk.StringVar(value="256")
+        self.max_samples_combobox = ttk.Combobox(self, textvariable=self.max_samples_var, state="readonly", font=font_large, width=30)
+        self.max_samples_combobox["values"] = ("16", "256", "None")
+        self.max_samples_combobox.grid(row=3, column=1, padx=10, pady=10)
+        
+        # 模型模式选择
+        tk.Label(self, text="Model Mode：", font=font_large).grid(row=4, column=0, padx=10, pady=10)
+        self.model_mode_var = tk.StringVar(value="train")
+        self.model_mode_combobox = ttk.Combobox(self, textvariable=self.model_mode_var, state="readonly", font=font_large, width=30)
+        self.model_mode_combobox["values"] = ("train", "eval")
+        self.model_mode_combobox.grid(row=4, column=1, padx=10, pady=10)
+        
+        # CUDA 设备选择
+        tk.Label(self, text="CUDA Device：", font=font_large).grid(row=5, column=0, padx=10, pady=10)
+        self.cuda_device_var = tk.StringVar(value="0")
+        self.cuda_device_combobox = ttk.Combobox(self, textvariable=self.cuda_device_var, state="readonly", font=font_large, width=30)
+        self.cuda_device_combobox["values"] = ("0", "1")
+        self.cuda_device_combobox.grid(row=5, column=1, padx=10, pady=10)
+        
+        # 状态标签
+        self.status_var = tk.StringVar(value="Ready!")
+        self.status_label = tk.Label(self, textvariable=self.status_var, font=font_large, fg="blue")
+        self.status_label.grid(row=6, column=0, columnspan=2, pady=10)
+        
+        # 按钮框架
+        button_frame = tk.Frame(self)
+        button_frame.grid(row=7, column=0, columnspan=2, pady=10)
+        
+        # 测试按钮
+        self.test_button = tk.Button(
+            button_frame, text="Start Test", font=font_large, 
+            command=self.start_test, width=10
+        )
+        self.test_button.pack(side=tk.LEFT, padx=10)
+        
+        # 停止按钮
+        self.stop_button = tk.Button(
+            button_frame, text="Stop Test", font=font_large, 
+            command=self.stop_test, state=tk.DISABLED, width=10
+        )
+        self.stop_button.pack(side=tk.LEFT, padx=10)
+        
+        # 刷新按钮
+        self.refresh_button = tk.Button(
+            button_frame, text="Refresh", font=font_large, 
+            command=self.update_checkpoint_list, width=10
+        )
+        self.refresh_button.pack(side=tk.LEFT, padx=10)
     
-
-    if cuda_device == "0":
-        cuda_device = 0
-    elif cuda_device == "1":
-        cuda_device = 1
-    else:
-        messagebox.showerror("错误", "无效的CUDA设备选择！")
-        return
+    def update_checkpoint_list(self):
+        checkpoints = ["Latest Checkpoint"] + get_all_checkpoints()
+        self.checkpoint_combobox["values"] = checkpoints
+        messagebox.showinfo("Refreshed", "Checkpoint list refreshed!")
     
-    if max_samples == "16":
-        max_samples = 16
-    elif max_samples == "256":
-        max_samples = 256
-    elif max_samples == "None":
-        max_samples = None
-    else:
-        messagebox.showerror("错误", "无效的最大样本数选择！")
-        return
+    def start_test(self):
+        # 获取用户选择的参数
+        dataset = self.dataset_var.get()
+        test_method = self.test_method_var.get()
+        checkpoint = self.checkpoint_var.get()
+        max_samples = self.max_samples_var.get()
+        model_mode = self.model_mode_var.get()
+        cuda_device = self.cuda_device_var.get()
 
-    # 配置数据集路径
-    if dataset == "Full Data(train)":
-        data_dir = "filtered_data/all/train"
-    elif dataset == "Full Data(val)":
-        data_dir = "filtered_data/all/val"
-    elif dataset == "Small Data(train)":
-        data_dir = "filtered_data/small_256/train"
-    elif dataset == "Small Data(val)":
-        data_dir = "filtered_data/small_256/val"
-    elif dataset == "Full Masked Data(train)":
-        data_dir = "filtered_data/ground_mask_all/train"
-    elif dataset == "Full Masked Data(val)":
-        data_dir = "filtered_data/ground_mask_all/val"
-    elif dataset == "Small Masked Data(train)":
-        data_dir = "filtered_data/ground_mask_256/train"
-    elif dataset == "Small Masked Data(val)":
-        data_dir = "filtered_data/ground_mask_256/val"
-    else:
-        messagebox.showerror("错误", "无效的数据集选择！")
-        return
+        # 验证输入
+        if not dataset or not test_method or not checkpoint:
+            messagebox.showerror("错误", "请选择数据集、测试方式和权重文件！")
+            return
 
-    # 获取最新的模型检查点和归一化参数
-    try:
-        if checkpoint == "Latest Checkpoint":
-            checkpoint_path = get_last_checkpoint()
+        try:
+            cuda_device = int(cuda_device)
+        except ValueError:
+            messagebox.showerror("错误", "无效的CUDA设备选择！")
+            return
+
+        if max_samples == "None":
+            max_samples = None
         else:
-            checkpoint_path = os.path.join("checkpoints", checkpoint)
-    except FileNotFoundError as e:
-        messagebox.showerror("错误", f"无法找到检查点文件或归一化参数：\n{e}")
-        return
+            try:
+                max_samples = int(max_samples)
+            except ValueError:
+                messagebox.showerror("错误", "无效的最大样本数选择！")
+                return
 
-    print(f"测试方式: {test_method}")
-    print(f"权重文件路径: {checkpoint_path}") 
-    print(f"数据集路径: {data_dir}")
-    print(f"最大样本数: {max_samples}")
-    print(f"模型模式: {model_mode}")
-    print(f"CUDA设备: {cuda_device}")
-    # 执行测试
-    # 使用线程执行测试
-    test_thread = threading.Thread(
-        target=execute_test,
-        args=(test_method, checkpoint_path, data_dir, max_samples, model_mode, cuda_device)
-    )
-    test_thread.daemon = True  # 设置为守护线程，主程序退出时会自动结束
-    test_thread.start()
+        # 配置数据集路径
+        data_dirs = {
+            "Full Data(train)": "filtered_data/all/train",
+            "Full Data(val)": "filtered_data/all/val",
+            "Small Data(train)": "filtered_data/small_256/train",
+            "Small Data(val)": "filtered_data/small_256/val",
+            "Full Masked Data(train)": "filtered_data/ground_mask_all/train",
+            "Full Masked Data(val)": "filtered_data/ground_mask_all/val",
+            "Small Masked Data(train)": "filtered_data/ground_mask_256/train",
+            "Small Masked Data(val)": "filtered_data/ground_mask_256/val"
+        }
+        
+        data_dir = data_dirs.get(dataset)
+        if data_dir is None:
+            messagebox.showerror("错误", "无效的数据集选择！")
+            return
 
-    # if test_method == "Circle Target Test":
-    #     test_random_images_with_circle_trg(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
-    # elif test_method == "Evacuate Test":
-    #     evaluate_model(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
-    # elif test_method == "Test":
-    #     test_model(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
-    # else:
-    #     messagebox.showerror("错误", "无效的测试方式选择！")
+        # 获取检查点路径
+        try:
+            if checkpoint == "Latest Checkpoint":
+                checkpoint_path = get_last_checkpoint()
+            else:
+                checkpoint_path = os.path.join("checkpoints", checkpoint)
+        except FileNotFoundError as e:
+            messagebox.showerror("错误", f"无法找到检查点文件：\n{e}")
+            return
 
+        # 打印测试信息
+        print(f"测试方式: {test_method}")
+        print(f"权重文件路径: {checkpoint_path}") 
+        print(f"数据集路径: {data_dir}")
+        print(f"最大样本数: {max_samples}")
+        print(f"模型模式: {model_mode}")
+        print(f"CUDA设备: {cuda_device}")
+        
+        # 更新UI状态
+        self.status_var.set("Test running...")
+        self.test_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.NORMAL)
+        
+        # 启动测试线程
+        success = self.test_controller.start_test(
+            test_method, checkpoint_path, data_dir, 
+            max_samples, model_mode, cuda_device,
+            self.on_test_complete
+        )
+        
+        if not success:
+            self.status_var.set("Ready!")
+            self.test_button.config(state=tk.NORMAL)
+            self.stop_button.config(state=tk.DISABLED)
+    
+    def stop_test(self):
+        if self.test_controller.stop_test():
+            self.status_var.set("Stopped")
+        else:
+            self.status_var.set("No test running")
+        
+        self.test_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)
+    
+    def on_test_complete(self, success, message):
+        self.after(0, self._handle_test_complete, success, message)
+    
+    def _handle_test_complete(self, success, message):
+        if success:
+            self.status_var.set("Test complete")
+            messagebox.showinfo("Finished", message)
+        else:
+            self.status_var.set("Error")
+            messagebox.showerror("Error", message)
+        
+        self.test_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)
 
-# 创建主窗口
-root = tk.Tk()
-root.title("Test GUI")  # 设置窗口标题
-
-# 设置窗口大小
-root.geometry("800x600")  # 增大窗口大小
-
-# 设置全局字体
-font_large = ("Arial", 20)  # 字体为 Arial，大小为 20
-
-# 数据集选择
-dataset_label = tk.Label(root, text="Choose Dataset：", font=font_large)
-dataset_label.grid(row=0, column=0, padx=10, pady=10)
-
-dataset_var = tk.StringVar(value="Full Data(train)")  # 默认选择 Full Data
-dataset_combobox = ttk.Combobox(root, textvariable=dataset_var, state="readonly", font=font_large, width=30)
-dataset_combobox["values"] = ("Full Data(train)", 
-                              "Full Data(val)", 
-                              "Small Data(train)", 
-                              "Small Data(val)",
-                              "Full Masked Data(train)", 
-                              "Full Masked Data(val)", 
-                              "Small Masked Data(train)", 
-                              "Small Masked Data(val)")
-dataset_combobox.grid(row=0, column=1, padx=10, pady=10)
-
-# 测试方式选择
-test_method_label = tk.Label(root, text="Choose Test Method：", font=font_large)
-test_method_label.grid(row=1, column=0, padx=10, pady=10)
-
-test_method_var = tk.StringVar(value="Test")  # 默认选择 Circle Target Test
-test_method_combobox = ttk.Combobox(root, textvariable=test_method_var, state="readonly", font=font_large, width=30)
-test_method_combobox["values"] = ("Circle Target Test", "Evacuate Test", "Test")
-test_method_combobox.grid(row=1, column=1, padx=10, pady=10)
-
-# 权重文件选择
-checkpoint_label = tk.Label(root, text="Choose Checkpoint：", font=font_large)
-checkpoint_label.grid(row=2, column=0, padx=10, pady=10)
-
-checkpoint_var = tk.StringVar(value="Latest Checkpoint")  # 默认选择最新权重
-checkpoints = ["Latest Checkpoint"] + get_all_checkpoints()
-checkpoint_combobox = ttk.Combobox(root, textvariable=checkpoint_var, state="readonly", font=font_large, width=30)  # 设置宽度为30
-checkpoint_combobox["values"] = checkpoints
-checkpoint_combobox.grid(row=2, column=1, padx=10, pady=10)
-
-# 最大样本数选择
-max_samples_label = tk.Label(root, text="Max Samples：", font=font_large)
-max_samples_label.grid(row=3, column=0, padx=10, pady=10)
-
-max_samples_var = tk.StringVar(value="256")  # 默认选择 256
-max_samples_combobox = ttk.Combobox(root, textvariable=max_samples_var, state="readonly", font=font_large, width=30)
-max_samples_combobox["values"] = ("16", "256", "None")
-max_samples_combobox.grid(row=3, column=1, padx=10, pady=10)
-
-# 模型模式选择
-model_mode_label = tk.Label(root, text="Model Mode：", font=font_large)
-model_mode_label.grid(row=4, column=0, padx=10, pady=10)
-
-model_mode_var = tk.StringVar(value="train")  # 默认选择 train
-model_mode_combobox = ttk.Combobox(root, textvariable=model_mode_var, state="readonly", font=font_large, width=30)
-model_mode_combobox["values"] = ("train", "eval")
-model_mode_combobox.grid(row=4, column=1, padx=10, pady=10)
-
-# CUDA 设备选择
-cuda_device_label = tk.Label(root, text="CUDA Device：", font=font_large)
-cuda_device_label.grid(row=5, column=0, padx=10, pady=10)
-
-cuda_device_var = tk.StringVar(value="0")  # 默认选择 0
-cuda_device_combobox = ttk.Combobox(root, textvariable=cuda_device_var, state="readonly", font=font_large, width=30)
-cuda_device_combobox["values"] = ("0", "1")
-cuda_device_combobox.grid(row=5, column=1, padx=10, pady=10)
-
-# 测试按钮
-test_button = tk.Button(root, text="Start Test", font=font_large, command=run_test)
-test_button.grid(row=6, column=0, columnspan=2, pady=20)
-
-# 运行主循环
-root.mainloop()
+if __name__ == "__main__":
+    app = Application()
+    app.mainloop()
