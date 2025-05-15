@@ -4,6 +4,7 @@ import os
 from test import test_model
 from test_for_different_goal import test_random_images_with_circle_trg
 from evacuate import evaluate_model
+import threading
 
 def get_all_checkpoints():
     """获取所有权重文件的路径"""
@@ -21,6 +22,18 @@ def get_last_checkpoint():
         raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
     checkpoint_path = max(checkpoint_files, key=os.path.getmtime)  # 按修改时间选择最新的文件
     return checkpoint_path
+
+def execute_test(test_method, checkpoint_path, data_dir, max_samples, model_mode, cuda_device):
+    try:
+        if test_method == "Circle Target Test":
+            test_random_images_with_circle_trg(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
+        elif test_method == "Evacuate Test":
+            evaluate_model(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
+        elif test_method == "Test":
+            test_model(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
+    except Exception as e:
+        # 使用after方法在GUI线程中显示错误
+        root.after(0, lambda: messagebox.showerror("错误", f"测试过程中发生错误:\n{e}"))
 
 def run_test():
     # 获取用户选择的参数
@@ -93,15 +106,22 @@ def run_test():
     print(f"模型模式: {model_mode}")
     print(f"CUDA设备: {cuda_device}")
     # 执行测试
-    
-    if test_method == "Circle Target Test":
-        test_random_images_with_circle_trg(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
-    elif test_method == "Evacuate Test":
-        evaluate_model(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
-    elif test_method == "Test":
-        test_model(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
-    else:
-        messagebox.showerror("错误", "无效的测试方式选择！")
+    # 使用线程执行测试
+    test_thread = threading.Thread(
+        target=execute_test,
+        args=(test_method, checkpoint_path, data_dir, max_samples, model_mode, cuda_device)
+    )
+    test_thread.daemon = True  # 设置为守护线程，主程序退出时会自动结束
+    test_thread.start()
+
+    # if test_method == "Circle Target Test":
+    #     test_random_images_with_circle_trg(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
+    # elif test_method == "Evacuate Test":
+    #     evaluate_model(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
+    # elif test_method == "Test":
+    #     test_model(checkpoint_path, data_dir, max_samples=max_samples, modelmode=model_mode, cuda_device=cuda_device)
+    # else:
+    #     messagebox.showerror("错误", "无效的测试方式选择！")
 
 
 # 创建主窗口

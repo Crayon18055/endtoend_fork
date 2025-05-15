@@ -220,8 +220,8 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     
-    # pretrained_weights_path = "checkpoints/model_final_20250512_191423.pth"  # 指定预训练权重路径
-    pretrained_weights_path = None
+    pretrained_weights_path = "checkpoints/model_final_20250514_130231.pth"  # 指定预训练权重路径
+    # pretrained_weights_path = None
     train_pipeline(data_dir, 
                    txt_path, 
                    num_epochs=1000, 

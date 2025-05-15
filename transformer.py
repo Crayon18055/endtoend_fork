@@ -165,6 +165,8 @@ class EmbeddingImage(nn.Module):
         # x: [B, 3, 640, 640]
         x = self.stdcnet_stem(x)  # [B, 128, 80, 80]
         x = self.proj(x)          # [B, 768, 40, 40]
+        # conv_show = x.mean(dim=0).mean(dim=0)  # [768, 40, 40]
+        # print("conv_show:", conv_show)
         x = x.flatten(2).transpose(1, 2)  # [B, N=1600, 768]
         x = self.norm(x)          # LayerNorm 在特征维度
         x = x + self.pos_embed    # 加入位置编码

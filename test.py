@@ -117,7 +117,7 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
 
         # 叠加原图和注意力图
         axes[i].imshow(image_np)  # 显示原图
-        im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.6)  # 叠加注意力图，设置透明度
+        im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.3)  # 叠加注意力图，设置透明度
         axes[i].set_title(f"Image {i + 1}")
         axes[i].axis("off")
 

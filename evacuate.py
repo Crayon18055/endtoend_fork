@@ -73,36 +73,6 @@ def evaluate_model(checkpoint_path, data_dir, max_samples=256, modelmode="train"
 
     # 初始化评分列表
     scores = []
-    def calculate_score_1(output, target):
-        """
-        用户定义的评分函数，支持 batch 维度。
-        Args:
-            output: 模型输出值，形状为 [batch_size, 2]，第一项为线速度，第二项为角速度。
-            target: 数据集参考值，形状为 [batch_size, 2]，第一项为线速度，第二项为角速度。
-        Returns:
-            总评分值（float）
-        """
-        # 提取线速度和角速度
-        v_output, w_output = output[:, 0], output[:, 1]  # 模型输出
-        v_target, w_target = target[:, 0], target[:, 1]  # 数据集参考值
-
-        # 计算曲率 (kappa = w / v)，并限制线速度非零
-        kappa_output = w_output / torch.clamp(v_output, min=1e-6)  # 避免除以零
-        kappa_target = w_target / torch.clamp(v_target, min=1e-6)
-
-        # 计算曲率的 tanh 函数，将曲率限制到 [-1, 1]
-        norm_kappa_error = torch.tanh(kappa_output - kappa_target)  # 使用 tanh 函数限制曲率
-
-        # 计算线速度和曲率的加权平方和
-        weight_v = 1.0  # 线速度的权重
-        weight_kappa = 5.0  # 曲率的权重
-        score = torch.sqrt(
-            weight_v * (v_output - v_target) ** 2 +
-            weight_kappa * norm_kappa_error ** 2
-        )
-
-        # 返回总分
-        return torch.mean(score)
 
     # 遍历所有图片
     for image_path, row in zip(selected_images, selected_rows.iterrows()):
@@ -123,9 +93,6 @@ def evaluate_model(checkpoint_path, data_dir, max_samples=256, modelmode="train"
         target_output = row[[2, 3]].values.astype(float)
         print("target_output: ",target_output)
         print("output: ",output.squeeze().cpu().numpy())
-        batch_target_output = torch.tensor(target_output, dtype=torch.float32).view(1, 2, 1).to(device)
-        loss = calculate_score_1(output, batch_target_output)
-        print(f"Loss: {loss}")
         # print(f"Target Output: {target_output}, Model Output: {output.squeeze().cpu().numpy()}")
         score = calculate_score(output.squeeze().cpu().numpy(), target_output)
         print(f"Score: {score}")
@@ -204,7 +171,7 @@ def calculate_score(output, target):
 
 if __name__ == "__main__":
     # 配置参数
-    full_data_dir = "filtered_data/all/val"  # 数据目录
+    full_data_dir = "filtered_data/ground_mask_all/val"  # 数据目录
     train_data_dir = "filtered_data/small_256/train"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
 
@@ -229,7 +196,7 @@ if __name__ == "__main__":
     # 评估模型
     total_score, avg_score = evaluate_model(checkpoint_path, 
                                             data_dir, 
-                                            max_samples=16,
+                                            max_samples=None,
                                             modelmode="train",
                                             cuda_device=1)
     
