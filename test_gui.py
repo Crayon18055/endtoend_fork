@@ -5,7 +5,6 @@ from test import test_model
 from test_for_different_goal import test_random_images_with_circle_trg
 from evacuate import evaluate_model
 import threading
-import time
 
 class TestController:
     def __init__(self):

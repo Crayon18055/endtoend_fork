@@ -3,7 +3,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
-from PIL import Image, ImageDraw, ImageFont
+from torch.utils.data import Dataset, DataLoader
+from PIL import Image
 from transformer import Transformer  # 假设 Transformer 定义在 transformer.py 文件中
 from config import config_dict
 import matplotlib.pyplot as plt
@@ -13,6 +14,7 @@ import pandas as pd  # 用于读取和处理 .txt 文件
 from shutil import copyfile
 import signal
 import time  # 添加时间模块
+from dataloaders import CustomData  # 假设 CustomData 定义在 dataloaders.py 文件中
 # 配置
 
 
@@ -39,7 +41,7 @@ def normalize_vector(data):
 
 
 # 持续训练流程
-def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints", pretrained_weights=None):
+def train_pipeline(dataset,  num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints", pretrained_weights=None):
     # 配置
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -63,20 +65,6 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     # 创建保存权重的目录
     os.makedirs(save_dir, exist_ok=True)
 
-    # 加载小数据集
-    df = pd.read_csv(txt_file, header=None, delimiter=',')
-    if max_samples is not None:
-        df = df.head(n=max_samples)
-
-    image_files = df.iloc[:, 6].astype(int).astype(str) + ".jpg"  # 假设第 7 列为图片文件名
-    trg = df.iloc[:, [4, 5]].values.astype(float)
-    trg_data = torch.tensor(trg, dtype=torch.float32)
-    trg_data = normalize_vector(trg_data)
-    target_output = df.iloc[:, [2, 3]].values.astype(float)
-    target_output_data = torch.tensor(target_output, dtype=torch.float32)
-
-    trg_data = trg_data.unsqueeze(-1) # 添加最后一维
-    # target_output_data = target_output_data
 
     # 初始化实时绘图
     plt.ion()
@@ -100,6 +88,8 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
 
     signal.signal(signal.SIGINT, save_and_exit)
     model.train()
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=8)
+
 
     def calculate_score(output, target):
         """
@@ -139,34 +129,14 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
         for epoch in range(num_epochs):
             epoch_start_time = time.time()  # 记录 epoch 开始时间
             epoch_loss = 0
+            batch_idx = 1
 
-            # 随机打乱数据顺序
-            indices = torch.randperm(len(image_files)).tolist()  # 将索引打乱并转换为列表
-            shuffled_image_files = [image_files.iloc[i] for i in indices]  # 使用 iloc 获取打乱后的图片文件名
-            shuffled_trg_data = trg_data[indices]
-            shuffled_target_output_data = target_output_data[indices]
-
-            for start_idx in range(0, len(shuffled_image_files), batch_size):
+            for images, vws, global_points in dataloader:
                 batch_start_time = time.time()  # 记录 batch 开始时间
+                batch_images = images.to(device)
+                batch_target_output = vws.to(device)
+                batch_trg_data = global_points.to(device)
 
-                # 获取当前 batch 的数据
-                batch_image_files = shuffled_image_files[start_idx:start_idx + batch_size]
-                batch_trg_data = shuffled_trg_data[start_idx:start_idx + batch_size]
-                batch_target_output = shuffled_target_output_data[start_idx:start_idx + batch_size]
-
-                # 动态加载图片到 GPU
-                batch_images = []
-                for img_file in batch_image_files:
-                    img_path = os.path.join(data_dir, "images", img_file)
-                    # print(f"Loading image: {img_path}")
-                    batch_images.append(load_image(img_path))
-                batch_images = torch.cat(batch_images).to(device)
-
-                # 将目标数据移动到 GPU
-                batch_trg_data = batch_trg_data.to(device)
-                # print(f"batch_trg_data: {batch_trg_data}")
-                batch_target_output = batch_target_output.to(device)
-                # print(f"batch_target_output: {batch_target_output}")
                 # 前向传播
                 output, _, _ = model(batch_images, batch_trg_data)
                 # print(f"output: {output}")
@@ -182,8 +152,8 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
 
                 # 打印 batch 用时
                 batch_end_time = time.time()
-                print(f"Epoch {epoch + 1}/{num_epochs}, Batch {start_idx // batch_size + 1}, Batch Time: {batch_end_time - batch_start_time:.2f}s")
-
+                print(f"Epoch {epoch + 1}/{num_epochs}, Batch {batch_idx}, Batch Time: {batch_end_time - batch_start_time:.2f}s")
+                batch_idx += 1
             # 打印 epoch 用时
             epoch_end_time = time.time()
             print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss}, Epoch Time: {epoch_end_time - epoch_start_time:.2f}s")
@@ -201,29 +171,34 @@ def train_pipeline(data_dir, txt_file, num_epochs=100, batch_size=16, max_sample
     # plt.ioff()
     # plt.show()
 
+
+transform = transforms.Compose([
+    transforms.Resize((640, 640)),
+    transforms.ToTensor()
+])
+
 # 测试代码
 if __name__ == "__main__":
     #*********************************************************************************
     # data_source = "smalldata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     if data_source == "fulldata":
         data_dir = "filtered_data/all/train"  # 筛选后的数据目录
-        txt_path = "filtered_data/all/train/labels.txt"  # 小数据集的 .txt 文件路径
     elif data_source == "smalldata":
         data_dir = "filtered_data/small_256/train"  # 筛选后的数据目录
-        txt_path = "filtered_data/small_256/train/labels.txt"  # 小数据集的 .txt 文件路径
     elif data_source == "areadata":
         data_dir = "filtered_data/ground_mask_all/train"  # 筛选后的数据目录
-        txt_path = "filtered_data/ground_mask_all/train/labels.txt"  # 小数据集的 .txt 文件路径
     else:
         raise ValueError(f"Invalid data source: {data_source}")
-    
-    pretrained_weights_path = "checkpoints/model_final_20250514_130231.pth"  # 指定预训练权重路径
+
+
+    dataset = CustomData(data_dir, transform)
+
+    pretrained_weights_path = "checkpoints/model_final_20250513_091916.pth"  # 指定预训练权重路径
     # pretrained_weights_path = None
-    train_pipeline(data_dir, 
-                   txt_path, 
+    train_pipeline(dataset, 
                    num_epochs=1000, 
                    batch_size=16, 
                    max_samples=None, 

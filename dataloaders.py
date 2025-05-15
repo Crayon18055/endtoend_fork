@@ -12,22 +12,32 @@ class CustomData(Dataset):
         self.transform = transform
         self.samples = []
 
-        sub_dataset = [dirpath for dirpath, _, _ in os.walk(data_root)]
-        print(f"sub_dataset: {sub_dataset}")
+        dataset = data_root
+        print(f"sub_dataset: {dataset}")
 
-        for sub_dir in sub_dataset:
-            label_txt = os.path.join(sub_dir, "txt_file.txt")
-            if not os.path.exists(label_txt):
-                # raise FileNotFoundError(f"can not find label file: {label_txt}")
-                continue
+
+        label_txt = os.path.join(dataset, "labels.txt")
+        if not os.path.exists(label_txt):
+            raise FileNotFoundError(f"can not find label file: {label_txt}")
+        
+        df = pd.read_csv(label_txt, header=None, delimiter=',')
+
+        for _, line in df.iterrows():
+            img_path = os.path.join(dataset, "images", f"{int(line[6])}.jpg")
+            vw = list(map(float, (line[2], line[3])))
             
-            df = pd.read_csv(label_txt, header=None, delimiter=',')
-
-            for _, line in df.iterrows():
-                img_path = os.path.join(sub_dir, "images", f"{int(line[6])}.jpg")
-                vw = list(map(float, (line[2], line[3])))
-                global_point = list(map(float, (line[4], line[5])))
-                self.samples.append((img_path, vw, global_point))
+            global_point = list(map(float, (line[4], line[5])))
+    
+            # 计算模长
+            magnitude = (global_point[0]**2 + global_point[1]**2)**0.5
+            
+            # 归一化为单位向量（模长为1）
+            if magnitude > 0:  # 避免除以零
+                normalized_global_point = [global_point[0]/magnitude, global_point[1]/magnitude]
+            else:
+                normalized_global_point = [0.0, 0.0]  # 如果模长为0，则设为0向量
+            
+            self.samples.append((img_path, vw, normalized_global_point))
 
     def __len__(self):
         return len(self.samples)
@@ -40,7 +50,7 @@ class CustomData(Dataset):
             image = self.transform(image)
 
         vw = torch.tensor(vw, dtype=torch.float32)
-        global_point = torch.tensor(global_point, dtype=torch.float32)
+        global_point = torch.tensor(global_point, dtype=torch.float32).unsqueeze(-1)
         return image, vw, global_point
 
 
@@ -51,7 +61,7 @@ transform = transforms.Compose([
 
 
 if __name__ == "__main__":
-    data_root = "./RawData_250514/filtered_data3"
+    data_root = "filtered_data/small_256/train"
 
     dataset = CustomData(data_root, transform)
 
