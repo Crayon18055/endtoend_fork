@@ -10,14 +10,11 @@ class TestController:
     def __init__(self):
         self.test_thread = None
         self.running = False
-        self.stop_event = threading.Event()
 
     def start_test(self, test_method, checkpoint_path, data_dir, max_samples, model_mode, cuda_device, callback):
         if self.running:
-            messagebox.showwarning("警告", "已有测试正在运行，请等待完成或停止当前测试")
             return False
         
-        self.stop_event.clear()
         self.running = True
         
         self.test_thread = threading.Thread(
@@ -30,9 +27,6 @@ class TestController:
 
     def _execute_test(self, test_method, checkpoint_path, data_dir, max_samples, model_mode, cuda_device, callback):
         try:
-            if self.stop_event.is_set():
-                return
-                
             if test_method == "Circle Target Test":
                 test_random_images_with_circle_trg(
                     checkpoint_path, data_dir, 
@@ -60,33 +54,8 @@ class TestController:
             self.running = False
             callback(True, "测试完成")
 
-    def stop_test(self):
-        if self.running and self.test_thread is not None:
-            self.stop_event.set()
-            self.test_thread.join(timeout=2)
-            self.running = False
-            return True
-        return False
-
     def is_running(self):
         return self.running
-
-def get_all_checkpoints():
-    """获取所有权重文件的路径"""
-    checkpoint_dir = "checkpoints"
-    if not os.path.exists(checkpoint_dir):
-        return []
-    return [f for f in os.listdir(checkpoint_dir) if f.endswith(".pth")]
-
-def get_last_checkpoint():
-    checkpoint_dir = "checkpoints"
-    if not os.path.exists(checkpoint_dir):
-        raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_dir}")
-    checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
-    if not checkpoint_files:
-        raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
-    checkpoint_path = max(checkpoint_files, key=os.path.getmtime)
-    return checkpoint_path
 
 class Application(tk.Tk):
     def __init__(self):
@@ -99,9 +68,6 @@ class Application(tk.Tk):
         
         # 初始化UI
         self.setup_ui()
-        
-        # 状态变量
-        self.test_in_progress = False
         
     def setup_ui(self):
         font_large = ("Arial", 20)
@@ -165,21 +131,14 @@ class Application(tk.Tk):
         # 测试按钮
         self.test_button = tk.Button(
             button_frame, text="Start Test", font=font_large, 
-            command=self.start_test, width=10
+            command=self.start_test, width=15
         )
         self.test_button.pack(side=tk.LEFT, padx=10)
-        
-        # 停止按钮
-        self.stop_button = tk.Button(
-            button_frame, text="Stop Test", font=font_large, 
-            command=self.stop_test, state=tk.DISABLED, width=10
-        )
-        self.stop_button.pack(side=tk.LEFT, padx=10)
         
         # 刷新按钮
         self.refresh_button = tk.Button(
             button_frame, text="Refresh", font=font_large, 
-            command=self.update_checkpoint_list, width=10
+            command=self.update_checkpoint_list, width=15
         )
         self.refresh_button.pack(side=tk.LEFT, padx=10)
     
@@ -255,7 +214,6 @@ class Application(tk.Tk):
         # 更新UI状态
         self.status_var.set("Test running...")
         self.test_button.config(state=tk.DISABLED)
-        self.stop_button.config(state=tk.NORMAL)
         
         # 启动测试线程
         success = self.test_controller.start_test(
@@ -267,16 +225,6 @@ class Application(tk.Tk):
         if not success:
             self.status_var.set("Ready!")
             self.test_button.config(state=tk.NORMAL)
-            self.stop_button.config(state=tk.DISABLED)
-    
-    def stop_test(self):
-        if self.test_controller.stop_test():
-            self.status_var.set("Stopped")
-        else:
-            self.status_var.set("No test running")
-        
-        self.test_button.config(state=tk.NORMAL)
-        self.stop_button.config(state=tk.DISABLED)
     
     def on_test_complete(self, success, message):
         self.after(0, self._handle_test_complete, success, message)
@@ -290,7 +238,23 @@ class Application(tk.Tk):
             messagebox.showerror("Error", message)
         
         self.test_button.config(state=tk.NORMAL)
-        self.stop_button.config(state=tk.DISABLED)
+
+def get_all_checkpoints():
+    """获取所有权重文件的路径"""
+    checkpoint_dir = "checkpoints"
+    if not os.path.exists(checkpoint_dir):
+        return []
+    return [f for f in os.listdir(checkpoint_dir) if f.endswith(".pth")]
+
+def get_last_checkpoint():
+    checkpoint_dir = "checkpoints"
+    if not os.path.exists(checkpoint_dir):
+        raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_dir}")
+    checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
+    if not checkpoint_files:
+        raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
+    checkpoint_path = max(checkpoint_files, key=os.path.getmtime)
+    return checkpoint_path
 
 if __name__ == "__main__":
     app = Application()

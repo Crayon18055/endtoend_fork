@@ -168,8 +168,7 @@ def train_pipeline(dataset,  num_epochs=100, batch_size=16, max_samples=None, sa
     except KeyboardInterrupt:
         save_and_exit(None, None)
     save_and_exit(None, None)
-    # plt.ioff()
-    # plt.show()
+
 
 
 transform = transforms.Compose([

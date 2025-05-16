@@ -171,7 +171,7 @@ def calculate_score(output, target):
 
 if __name__ == "__main__":
     # 配置参数
-    full_data_dir = "filtered_data/ground_mask_all/val"  # 数据目录
+    full_data_dir = "filtered_data/all/val"  # 数据目录
     train_data_dir = "filtered_data/small_256/train"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
 
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     # 评估模型
     total_score, avg_score = evaluate_model(checkpoint_path, 
                                             data_dir, 
-                                            max_samples=None,
+                                            max_samples=256,
                                             modelmode="train",
                                             cuda_device=1)
     

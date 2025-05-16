@@ -74,24 +74,26 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
         cache = get_local.cache  # -> {'your_attention_function': [attention_map]}
         attention_maps = cache['MultiHeadAttention.forward']
 
-        # 打印注意力图的形状
-        print(f"Attention maps shape: {len(attention_maps)}, {attention_maps[0].shape}")
 
-        # 对 attention_maps 的所有元素求平均值
-        # 首先将列表中的所有元素堆叠成一个 Tensor
-        attention_maps_tensor = torch.stack([torch.tensor(att_map) for att_map in attention_maps[:4]])
+        # 假设 attention_maps 是一个包含8个元素的列表，前4个是1600x1600，后4个是2x1600
+        attention_maps_np = [np.array(att_map) for att_map in attention_maps]
 
-        # 对堆叠后的 Tensor 求平均值
-        attention_map_avg = attention_maps_tensor.mean(dim=0)
+        # 处理前4个1600x1600矩阵（从后向前叉乘）
+        result = attention_maps_np[3].mean(axis=0).mean(axis=0)  # 最后一个矩阵，先降维
+        print("result: ",result.shape)
+        for j in range(3, -1, -1):  # 从倒数第二个到第一个
+            mat = attention_maps_np[j].mean(axis=0).mean(axis=0)  # 当前矩阵降维
+            result = np.matmul(result, mat)  # NumPy矩阵乘法
+            print("result: ",result.shape)
+        # 处理后4个2x1600矩阵（按位求和）
+        last_four = np.stack([att_map for att_map in attention_maps_np[4:]])  # 4x2x1600
+        sum_last = np.sum(last_four, axis=0).mean(axis=0).mean(axis=0)  # 降维到1600
+        print("sum_last: ",sum_last.shape)
+        # 最终矩阵乘法
+        attention_map = np.matmul(sum_last, result).mean(axis=0)
 
-        # 打印平均后的注意力图形状
-        print("shape of attention_map_avg:", attention_map_avg.shape)
-
-        # 转换为 Tensor（如果需要进一步处理）
-        attention_map = attention_map_avg.mean(dim=0).mean(dim=0).mean(dim=0)  # 取平均值，得到 (1600, 1600)
-
-        # 打印最终注意力图的形状
-        print("Final attention_map shape:", attention_map.shape)
+        # 如果需要可以转换回torch tensor
+        # attention_map = torch.from_numpy(attention_map)
 
         # 打印输出结果
         output_text = f"Output: {[round(val, 4) for val in output.squeeze().tolist()]}"
@@ -111,13 +113,13 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
         image_np = np.array(image)
 
         # 获取注意力图并调整大小
-        attention_image = attention_map.reshape(40, 40).cpu().numpy()
+        attention_image = attention_map.reshape(40, 40)
         attention_image = attention_image[::-1, ::-1]  # 旋转180度
         attention_image_resized = np.kron(attention_image, np.ones((16, 16)))  # 将注意力图放大到与原图相同大小
 
         # 叠加原图和注意力图
         axes[i].imshow(image_np)  # 显示原图
-        im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.3)  # 叠加注意力图，设置透明度
+        im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.5)  # 叠加注意力图，设置透明度
         axes[i].set_title(f"Image {i + 1}")
         axes[i].axis("off")
 
@@ -142,8 +144,8 @@ if __name__ == "__main__":
     data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    # checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250513_091916.pth"  # 模型权重路径
+    checkpoint_path = get_last_checkpoint()
+    # checkpoint_path = "checkpoints/model_final_20250513_091916.pth"  # 模型权重路径
     
 
     if data_source == "fulldata":
@@ -157,6 +159,6 @@ if __name__ == "__main__":
 
     test_model(checkpoint_path, 
                data_dir, 
-               max_samples=16, 
+               max_samples=None, 
                modelmode="train",
                cuda_device=1)
