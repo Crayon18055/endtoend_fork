@@ -2,71 +2,52 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, DistributedSampler
 from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
 from PIL import Image
-from transformer import Transformer  # 假设 Transformer 定义在 transformer.py 文件中
-from config import config_dict
-import matplotlib.pyplot as plt
 from datetime import datetime
-import random
-import pandas as pd  # 用于读取和处理 .txt 文件
-from shutil import copyfile
+import matplotlib.pyplot as plt
+import time
 import signal
-import time  # 添加时间模块
-from dataloaders import CustomData  # 假设 CustomData 定义在 dataloaders.py 文件中
-# 配置
+from dataloaders import CustomData
+from transformer import Transformer
+from config import config_dict
 
 
-# 加载图片并预处理
-def load_image(image_path):
-    transform = transforms.Compose([
-        transforms.Resize((640, 640)),
-        transforms.ToTensor(),
-    ])
-    image = Image.open(image_path).convert("RGB")
-    image = transform(image)
-    return image.unsqueeze(0)  # 添加 batch 维度
+def setup_ddp(rank, world_size):
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
 
-# 归一化函数
+def cleanup_ddp():
+    dist.destroy_process_group()
+
 def normalize_vector(data):
-    # 计算向量长度
-    length = torch.sqrt(data[:, 0]**2 + data[:, 1]**2).unsqueeze(-1)  # 计算每行的向量长度
-    # 避免除以零
+    length = torch.sqrt(data[:, 0]**2 + data[:, 1]**2).unsqueeze(-1)
     length[length == 0] = 1.0
-    # 每个数据除以向量长度
-    normalized_data = data / length
-    return normalized_data
+    return data / length
 
 
 
-# 持续训练流程
-def train_pipeline(dataset,  num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints", pretrained_weights=None):
-    # 配置
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints", pretrained_weights=None):
+    setup_ddp(rank, world_size)
+    device = torch.device(f"cuda:{rank}")
+    model = Transformer(config_dict).to(device)
 
-    # 初始化模型
-    model = Transformer(config_dict).to(device, dtype=torch.float32)
-    print(f"Model initialized")
-
-    # 如果指定了预训练权重路径，则加载权重
-    if pretrained_weights:
-        if os.path.exists(pretrained_weights):
-            model.load_state_dict(torch.load(pretrained_weights, map_location=device))
+    if pretrained_weights and os.path.exists(pretrained_weights):
+        map_location = {f"cuda:{0}": f"cuda:{rank}"}
+        model.load_state_dict(torch.load(pretrained_weights, map_location=map_location))
+        if rank == 0:
             print(f"Loaded pretrained weights from {pretrained_weights}")
-        else:
-            raise FileNotFoundError(f"Pretrained weights not found at {pretrained_weights}")
 
-    # 定义损失函数和优化器
-    # criterion = nn.MSELoss()
+    model = DDP(model, device_ids=[rank], find_unused_parameters=True)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
-
-    # 创建保存权重的目录
     os.makedirs(save_dir, exist_ok=True)
 
-
-    # 初始化实时绘图
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=4, pin_memory=True)
     plt.ion()
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_title("Training Loss")
@@ -76,21 +57,13 @@ def train_pipeline(dataset,  num_epochs=100, batch_size=16, max_samples=None, sa
     line, = ax.plot([], [], label="Loss")
     ax.legend()
 
-    # 捕获 Ctrl+C 信号
-    def save_and_exit(signum, frame):
-        print("\nTraining interrupted. Saving model...")
-        # 保存最终模型权重
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        final_checkpoint_path = os.path.join(save_dir, f"model_final_{timestamp}.pth")
-        torch.save(model.state_dict(), final_checkpoint_path)
-        print(f"Final model saved to {final_checkpoint_path}")
+    def save_and_exit():
+        if rank == 0:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            torch.save(model.module.state_dict(), os.path.join(save_dir, f"model_final_{timestamp}.pth"))
+            print(f"Final model saved to model_final_{timestamp}.pth")
+        cleanup_ddp()
         exit(0)
-
-    signal.signal(signal.SIGINT, save_and_exit)
-    model.train()
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=8)
-
-
     def calculate_score(output, target):
         """
         用户定义的评分函数，支持 batch 维度。
@@ -127,36 +100,32 @@ def train_pipeline(dataset,  num_epochs=100, batch_size=16, max_samples=None, sa
     # 修改训练循环
     try:
         for epoch in range(num_epochs):
-            epoch_start_time = time.time()  # 记录 epoch 开始时间
+            epoch_start_time = time.time()
+            model.train()
+            sampler.set_epoch(epoch)
             epoch_loss = 0
-            batch_idx = 1
 
-            for images, vws, global_points in dataloader:
-                batch_start_time = time.time()  # 记录 batch 开始时间
+            for batch_idx, (images, vws, global_points) in enumerate(dataloader):
+                batch_start_time = time.time()
+
                 batch_images = images.to(device)
                 batch_target_output = vws.to(device)
                 batch_trg_data = global_points.to(device)
 
-                # 前向传播
                 output, _, _ = model(batch_images, batch_trg_data)
-                # print(f"output: {output}")
-                # 计算加权损失
                 loss = calculate_score(output, batch_target_output)
-
-                # 反向传播和优化
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-
                 epoch_loss += loss.item()
 
-                # 打印 batch 用时
                 batch_end_time = time.time()
-                print(f"Epoch {epoch + 1}/{num_epochs}, Batch {batch_idx}, Batch Time: {batch_end_time - batch_start_time:.2f}s")
-                batch_idx += 1
-            # 打印 epoch 用时
+                if rank == 0:
+                    print(f"[Epoch {epoch+1}] Batch {batch_idx+1}, Loss: {loss.item():.4f}, Batch Time: {batch_end_time - batch_start_time:.2f}s")
+
             epoch_end_time = time.time()
-            print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss}, Epoch Time: {epoch_end_time - epoch_start_time:.2f}s")
+            if rank == 0:
+                print(f"=== Epoch {epoch+1} completed. Total Loss: {epoch_loss:.4f}, Time: {epoch_end_time - epoch_start_time:.2f}s ===")
 
             # 更新 loss 历史
             loss_history.append(epoch_loss)
@@ -166,41 +135,38 @@ def train_pipeline(dataset,  num_epochs=100, batch_size=16, max_samples=None, sa
             ax.set_ylim(0, max(loss_history) * 1.1)
             plt.pause(0.01)
     except KeyboardInterrupt:
-        save_and_exit(None, None)
-    save_and_exit(None, None)
+        save_and_exit()
 
+    save_and_exit()
 
-
-transform = transforms.Compose([
-    transforms.Resize((640, 640)),
-    transforms.ToTensor()
-])
-
-# 测试代码
-if __name__ == "__main__":
-    #*********************************************************************************
-    # data_source = "smalldata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
-    #**********************************************************************************
+def main():
+    data_source = "fulldata"
     if data_source == "fulldata":
-        data_dir = "filtered_data/all/train"  # 筛选后的数据目录
+        data_dir = "filtered_data2/all/train"
     elif data_source == "smalldata":
-        data_dir = "filtered_data/small_256/train"  # 筛选后的数据目录
+        data_dir = "filtered_data2/small_256/train"
     elif data_source == "areadata":
-        data_dir = "filtered_data/ground_mask_all/train"  # 筛选后的数据目录
+        data_dir = "filtered_data/ground_mask_all/train"
     else:
         raise ValueError(f"Invalid data source: {data_source}")
 
+    transform = transforms.Compose([
+        transforms.Resize((640, 640)),
+        transforms.ToTensor()
+    ])
 
     dataset = CustomData(data_dir, transform)
+    pretrained_weights_path = ""
 
-    pretrained_weights_path = "checkpoints/model_final_20250513_091916.pth"  # 指定预训练权重路径
-    # pretrained_weights_path = None
-    train_pipeline(dataset, 
-                   num_epochs=1000, 
-                   batch_size=16, 
-                   max_samples=None, 
-                   save_dir="checkpoints", 
-                   pretrained_weights=pretrained_weights_path)
-    # train_pipeline(data_dir, txt_path, num_epochs=1000, batch_size=16, max_samples=256, save_dir="checkpoints
+    world_size = 2 # 设置训练的GPU数量
+
+    # ✅ 添加 DDP 环境变量
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+
+    mp.spawn(train_pipeline,
+             args=(world_size, dataset, 1000, 16, None, "checkpoints", pretrained_weights_path),
+             nprocs=world_size,
+             join=True)
+if __name__ == "__main__":
+    main()
