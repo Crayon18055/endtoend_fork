@@ -84,11 +84,11 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
         for j in range(3, -1, -1):  # 从倒数第二个到第一个
             mat = attention_maps_np[j].mean(axis=0).mean(axis=0)  # 当前矩阵降维
             result = np.matmul(result, mat)  # NumPy矩阵乘法
-            print("result: ",result.shape)
+            # print("result: ",result.shape)
         # 处理后4个2x1600矩阵（按位求和）
         last_four = np.stack([att_map for att_map in attention_maps_np[4:]])  # 4x2x1600
         sum_last = np.sum(last_four, axis=0).mean(axis=0).mean(axis=0)  # 降维到1600
-        print("sum_last: ",sum_last.shape)
+        # print("sum_last: ",sum_last.shape)
         # 最终矩阵乘法
         attention_map = np.matmul(sum_last, result).mean(axis=0)
 
@@ -134,18 +134,18 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
 if __name__ == "__main__":
     # 配置参数
     full_data_dir = "filtered_data/all/train"  # 数据目录
-    train_data_dir = "filtered_data/small_256/train"  # 数据目录
+    train_data_dir = "filtered_data/small_256/val"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
 
     num_samples = 8  # 随机选择的样本数量
 
     #*********************************************************************************
-    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    checkpoint_path = get_last_checkpoint()
-    # checkpoint_path = "checkpoints/model_final_20250513_091916.pth"  # 模型权重路径
+    # checkpoint_path = get_last_checkpoint()
+    checkpoint_path = "checkpoints/model_final_20250516_140807.pth"  # 模型权重路径
     
 
     if data_source == "fulldata":
@@ -159,6 +159,6 @@ if __name__ == "__main__":
 
     test_model(checkpoint_path, 
                data_dir, 
-               max_samples=None, 
+               max_samples=8, 
                modelmode="train",
                cuda_device=1)

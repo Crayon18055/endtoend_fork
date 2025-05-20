@@ -165,6 +165,7 @@ class EmbeddingImage(nn.Module):
         # x: [B, 3, 640, 640]
         x = self.stdcnet_stem(x)  # [B, 128, 80, 80]
         x = self.proj(x)          # [B, 768, 40, 40]
+        print("BatchNorm 层的 running_mean (均值):", self.stdcnet_stem[1].running_mean)
         # conv_show = x.mean(dim=0).mean(dim=0)  # [768, 40, 40]
         # print("conv_show:", conv_show)
         x = x.flatten(2).transpose(1, 2)  # [B, N=1600, 768]

@@ -172,17 +172,17 @@ def calculate_score(output, target):
 if __name__ == "__main__":
     # 配置参数
     full_data_dir = "filtered_data/all/val"  # 数据目录
-    train_data_dir = "filtered_data/small_256/train"  # 数据目录
+    train_data_dir = "filtered_data/small_256/val"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
 
     # 数据来源
     #*********************************************************************************
-    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    checkpoint_path = get_last_checkpoint()
-    # checkpoint_path = "checkpoints/model_final_20250513_091916.pth"
+    # checkpoint_path = get_last_checkpoint()
+    checkpoint_path = "checkpoints/model_final_20250516_140807.pth"  # 模型权重路径
 
     if data_source == "fulldata":
         data_dir = full_data_dir
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     # 评估模型
     total_score, avg_score = evaluate_model(checkpoint_path, 
                                             data_dir, 
-                                            max_samples=256,
+                                            max_samples=8,
                                             modelmode="train",
                                             cuda_device=1)
     

@@ -4,5 +4,7 @@
 /checkpoints
 /top_images
 /passarea
-
+*.mnn
+*.onnx
+*.pyc
 /Visualizer
