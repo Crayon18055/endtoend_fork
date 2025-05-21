@@ -6,32 +6,7 @@ from config import config_dict
 from get_sample_in_dir import get_data_from_dir
 import os
 import numpy as np
-# from Visualizer.visualizer import get_local
-# get_local.activate() # 激活装饰器
 from transformer import Transformer
-
-
-# def visualize_average_attention(att_map):
-#     A = torch.tensor(att_map[0]).mean(dim=0)  # 保险起见先转成 tensor
-#     # 平均多个 head，得到 (1600, 1600)
-    
-#     # 检查是否已经存在图形窗口
-#     if not hasattr(visualize_average_attention, 'fig'):
-#         visualize_average_attention.fig = plt.figure(figsize=(8, 8))
-#         visualize_average_attention.ax = visualize_average_attention.fig.add_subplot(111)
-#         visualize_average_attention.im = visualize_average_attention.ax.imshow(A[0].reshape(40, 40), cmap='hot')
-#         visualize_average_attention.fig.colorbar(visualize_average_attention.im)
-#         visualize_average_attention.ax.set_title("Average Attention Map (Token 0)")
-#         plt.ion()  # 打开交互模式
-#         # plt.show()
-#     else:
-#         # 更新图像数据
-#         visualize_average_attention.im.set_data(A[0].reshape(40, 40))
-#         visualize_average_attention.im.set_clim(vmin=A[0].min(), vmax=A[0].max())
-#         visualize_average_attention.fig.canvas.draw()
-#         visualize_average_attention.fig.canvas.flush_events()
-    
-#     plt.show(block=True)  # 短暂暂停以允许图形更新
 
 def load_image(image_path):
     transform = transforms.Compose([
@@ -172,12 +147,13 @@ def calculate_score(output, target):
 if __name__ == "__main__":
     # 配置参数
     full_data_dir = "filtered_data/all/val"  # 数据目录
+    test_data_dir = "filtered_data/eval_paths"  # 数据目录
     train_data_dir = "filtered_data/small_256/val"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
 
     # 数据来源
     #*********************************************************************************
-    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "testdata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
@@ -188,15 +164,53 @@ if __name__ == "__main__":
         data_dir = full_data_dir
     elif data_source == "traindata":
         data_dir = train_data_dir
-    elif data_source == "areadata":
-        data_dir = area_data_dir
+    elif data_source == "testdata":
+        data_dir =test_data_dir
     else:
         raise ValueError(f"Invalid data source: {data_source}")
 
     # 评估模型
-    total_score, avg_score = evaluate_model(checkpoint_path, 
-                                            data_dir, 
-                                            max_samples=8,
-                                            modelmode="train",
-                                            cuda_device=1)
+    # total_score, avg_score = evaluate_model(checkpoint_path, 
+    #                                         data_dir, 
+    #                                         max_samples=8,
+    #                                         modelmode="train",
+    #                                         cuda_device=1)
+    if data_source == "testdata":
+        # 获取所有子文件夹
+        subfolders = [f.path for f in os.scandir(data_dir) if f.is_dir()]
+        subfolders.sort()  # 按字母顺序排序
+        
+        if not subfolders:
+            print(f"No subfolders found in {data_dir}")
+        else:
+            scores = []
+            print("\nEvaluating each subfolder separately:")
+            print("=" * 50)
+            
+            for folder in subfolders:
+                folder_name = os.path.basename(folder)
+                print(f"\nEvaluating folder: {folder_name}")
+                
+                # 评估当前子文件夹
+                total_score, avg_score = evaluate_model(
+                    checkpoint_path, 
+                    folder, 
+                    max_samples=None,
+                    modelmode="train",
+                    cuda_device=1
+                )
+                
+                scores.append(avg_score)
+                # print(f"Folder '{folder_name}' score: {avg_score:.4f}")
+            
+            # 计算并打印平均分
+            overall_avg = sum(scores) / len(scores) if scores else 0
+            print("\n" + "=" * 50)
+            print(f"\nEvaluation complete for {len(scores)} subfolders")
+            print(f"Average score across all subfolders: {overall_avg:.4f}")
+            
+            # 打印每个文件夹的详细分数
+            print("\nDetailed scores:")
+            for folder, score in zip([os.path.basename(f) for f in subfolders], scores):
+                print(f"{folder}: {score:.4f}")
     

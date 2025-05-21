@@ -29,7 +29,16 @@ def normalize_vector(data):
     length[length == 0] = 1.0
     return data / length
 
-
+def get_last_checkpoint():
+    checkpoint_dir = "checkpoints"  # 假设权重文件保存在 "checkpoints" 目录下
+    if not os.path.exists(checkpoint_dir):
+        raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_dir}")
+    checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
+    if not checkpoint_files:
+        raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
+    checkpoint_path = max(checkpoint_files, key=os.path.getmtime)  # 按修改时间选择最新的文件
+    print(f"Checkpoint path: {checkpoint_path}")
+    return checkpoint_path
 
 def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints", pretrained_weights=None):
     setup_ddp(rank, world_size)
@@ -141,8 +150,9 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
 
 def main():
     data_source = "fulldata"
+
     if data_source == "fulldata":
-        data_dir = "filtered_data2/all/train"
+        data_dir = "filtered_data/data2_all"
     elif data_source == "smalldata":
         data_dir = "filtered_data2/small_256/train"
     elif data_source == "areadata":
@@ -156,7 +166,8 @@ def main():
     ])
 
     dataset = CustomData(data_dir, transform)
-    pretrained_weights_path = ""
+    # pretrained_weights_path = None
+    pretrained_weights_path = get_last_checkpoint()
 
     world_size = 2 # 设置训练的GPU数量
 
@@ -165,7 +176,7 @@ def main():
     os.environ['MASTER_PORT'] = '12355'
 
     mp.spawn(train_pipeline,
-             args=(world_size, dataset, 1000, 16, None, "checkpoints", pretrained_weights_path),
+             args=(world_size, dataset, 10, 16, None, "checkpoints", pretrained_weights_path),
              nprocs=world_size,
              join=True)
 if __name__ == "__main__":
