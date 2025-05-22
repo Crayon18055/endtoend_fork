@@ -176,7 +176,7 @@ def main():
     os.environ['MASTER_PORT'] = '12355'
 
     mp.spawn(train_pipeline,
-             args=(world_size, dataset, 10, 16, None, "checkpoints", pretrained_weights_path),
+             args=(world_size, dataset, 100, 16, None, "checkpoints", pretrained_weights_path),
              nprocs=world_size,
              join=True)
 if __name__ == "__main__":

@@ -80,7 +80,7 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
 
         # 处理前4个1600x1600矩阵（从后向前叉乘）
         result = attention_maps_np[3].mean(axis=0).mean(axis=0)  # 最后一个矩阵，先降维
-        print("result: ",result.shape)
+        # print("result: ",result.shape)
         for j in range(3, -1, -1):  # 从倒数第二个到第一个
             mat = attention_maps_np[j].mean(axis=0).mean(axis=0)  # 当前矩阵降维
             result = np.matmul(result, mat)  # NumPy矩阵乘法
@@ -119,7 +119,7 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
 
         # 叠加原图和注意力图
         axes[i].imshow(image_np)  # 显示原图
-        im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.5)  # 叠加注意力图，设置透明度
+        im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.3)  # 叠加注意力图，设置透明度
         axes[i].set_title(f"Image {i + 1}")
         axes[i].axis("off")
 
@@ -133,19 +133,19 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
 
 if __name__ == "__main__":
     # 配置参数
-    full_data_dir = "filtered_data/all/train"  # 数据目录
+    full_data_dir = "filtered_data/eval_paths/path3"  # 数据目录
     train_data_dir = "filtered_data/small_256/val"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
 
     num_samples = 8  # 随机选择的样本数量
 
     #*********************************************************************************
-    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     # checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250516_140807.pth"  # 模型权重路径
+    checkpoint_path = "checkpoints/model_final_20250521_130913.pth"  # 模型权重路径
     
 
     if data_source == "fulldata":
@@ -159,6 +159,6 @@ if __name__ == "__main__":
 
     test_model(checkpoint_path, 
                data_dir, 
-               max_samples=8, 
-               modelmode="train",
+               max_samples=None, 
+               modelmode="eval",
                cuda_device=1)
