@@ -63,7 +63,6 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             torch.save(model.module.state_dict(), os.path.join(save_dir, f"model_final_{timestamp}.pth"))
             print(f"Final model saved to model_final_{timestamp}.pth")
-        cleanup_ddp()
         
     def calculate_score(output, target):
         """
@@ -130,7 +129,7 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
             if rank == 0:
                 print(f"=== Epoch {epoch+1} completed. Total Loss: {epoch_loss:.4f}, Time: {epoch_end_time - epoch_start_time:.2f}s ===")
                 # 每10个ep保存一次
-                if (epoch + 1) % 10 == 0:
+                if (epoch + 1) % 1 == 0:
                     save()
                     checkpoint = get_last_checkpoint()
                     eval_score = eval_in_test_paths(checkpoint)
@@ -139,11 +138,11 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
 
     except KeyboardInterrupt:
         save()
+        cleanup_ddp()
         exit(0)
-
     save()
+    cleanup_ddp()
     exit(0)
-
 def main():
     
     data_source = "fulldata"
@@ -163,8 +162,8 @@ def main():
     ])
 
     dataset = CustomData(data_dir, transform)
-    # pretrained_weights_path = None
-    pretrained_weights_path = get_last_checkpoint()
+    pretrained_weights_path = None
+    # pretrained_weights_path = get_last_checkpoint()
 
     world_size = 2 # 设置训练的GPU数量
 

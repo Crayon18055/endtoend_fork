@@ -162,11 +162,11 @@ def eval_in_test_paths(checkpoint):
             
             # 评估当前子文件夹
             total_score, avg_score = evaluate_model(
-                checkpoint_path, 
+                checkpoint, 
                 folder, 
                 max_samples=None,
                 modelmode="train",
-                cuda_device=1
+                cuda_device=0
             )
             
             scores.append(avg_score)
