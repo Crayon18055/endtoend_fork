@@ -44,7 +44,7 @@ def evaluate_model(checkpoint_path, data_dir, max_samples=None, modelmode="train
     else:
         model.eval()    
     # model.eval()
-    selected_images, selected_rows = get_data_from_dir(data_dir, num_samples=256, max_samples=max_samples)
+    selected_images, selected_rows = get_data_from_dir(data_dir, num_samples=None, max_samples=max_samples)
 
     # 初始化评分列表
     scores = []
@@ -105,7 +105,7 @@ def evaluate_model(checkpoint_path, data_dir, max_samples=None, modelmode="train
         save_path = os.path.join(save_dir, os.path.basename(image_path))
         image.save(save_path)
     # print("Saved top image")
-    # print(f"Total Score: {total_score}, Average Score: {avg_score},Number of images: {len(selected_images)}")
+    print(f"Total Score: {total_score}, Average Score: {avg_score},Number of images: {len(selected_images)}")
     return total_score, avg_score
 
 
@@ -143,98 +143,99 @@ def calculate_score(output, target):
 
     return score
 
+def eval_in_test_paths(checkpoint):
+    test_dir = "filtered_data/eval_paths"  # 数据目录
+    # 获取所有子文件夹
+    subfolders = [f.path for f in os.scandir(test_dir) if f.is_dir()]
+    subfolders.sort()  # 按字母顺序排序
+    
+    if not subfolders:
+        print(f"No subfolders found in {test_dir}")
+    else:
+        scores = []
+        print("\nEvaluating each subfolder separately:")
+        print("=" * 50)
+        
+        for folder in subfolders:
+            folder_name = os.path.basename(folder)
+            print(f"Evaluating folder: {folder_name}")
+            
+            # 评估当前子文件夹
+            total_score, avg_score = evaluate_model(
+                checkpoint_path, 
+                folder, 
+                max_samples=None,
+                modelmode="train",
+                cuda_device=1
+            )
+            
+            scores.append(avg_score)
+        
+        # 计算并打印平均分
+        overall_avg = sum(scores) / len(scores) if scores else 0
+        print("\n" + "=" * 50)
+        print(f"\nEvaluation complete for {len(scores)} subfolders")
+        print(f"Average score across all subfolders: {overall_avg:.4f}")
+        
+        # 打印每个文件夹的详细分数
+        print("\nDetailed scores:")
+        for folder, score in zip([os.path.basename(f) for f in subfolders], scores):
+            print(f"{folder}: {score:.4f}")
+        return overall_avg
+
 
 if __name__ == "__main__":
     # 配置参数
     full_data_dir = "filtered_data/data2_all"  # 数据目录
     test_data_dir = "filtered_data/eval_paths"  # 数据目录
-    train_data_dir = "filtered_data/small_256/val"  # 数据目录
+    train_data_dir = "filtered_data/all/val"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
 
     # 数据来源
     #*********************************************************************************
-    # data_source = "testdata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "testdata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    # checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250522_092223.pth"  # 模型权重路径
+    checkpoint_path = get_last_checkpoint()
+    # checkpoint_path = "checkpoints/model_final_20250522_133052.pth"  # 模型权重路径
 
     if data_source == "fulldata":
-        data_dir = full_data_dir
+        test_dir = full_data_dir
     elif data_source == "traindata":
-        data_dir = train_data_dir
+        test_dir = train_data_dir
     elif data_source == "testdata":
-        data_dir =test_data_dir
+        test_dir =test_data_dir
     else:
         raise ValueError(f"Invalid data source: {data_source}")
-    sumscores = []
-    # 评估模型
-    for i in range(10):
-        # 评估模型
-        total_score, avg_score = evaluate_model(checkpoint_path, 
-                                                data_dir, 
-                                                max_samples=None,
-                                                modelmode="train",
-                                                cuda_device=1)
-        sumscores.append(avg_score)
-        print(f"Total Score: {total_score}, Average Score: {avg_score}")
-    # 计算并打印平均分
-    overall_avg = sum(sumscores) / len(sumscores) if sumscores else 0
-    print("\n" + "=" * 50)
-    print("train:",overall_avg)
+    # sumscores = []
+    # # 评估模型
+    # for i in range(10):
+    #     # 评估模型
+    #     total_score, avg_score = evaluate_model(checkpoint_path, 
+    #                                             data_dir, 
+    #                                             max_samples=256,
+    #                                             modelmode="eval",
+    #                                             cuda_device=1)
+    #     sumscores.append(avg_score)
+    #     print(f"Total Score: {total_score}, Average Score: {avg_score}")
+    # # 计算并打印平均分
+    # overall_avg = sum(sumscores) / len(sumscores) if sumscores else 0
+    # print("\n" + "=" * 50)
+    # print("train:",overall_avg)
 
-    sumscores_eval = []
-    # 评估模型
-    for i in range(10):
-        # 评估模型
-        total_score, avg_score = evaluate_model(checkpoint_path, 
-                                                data_dir, 
-                                                max_samples=None,
-                                                modelmode="eval",
-                                                cuda_device=1)
-        sumscores_eval.append(avg_score)
-        print(f"Total Score: {total_score}, Average Score: {avg_score}")
-    # 计算并打印平均分
-    overall_avg = sum(sumscores_eval) / len(sumscores_eval) if sumscores_eval else 0
-    print("\n" + "=" * 50)
-    print("eval:",overall_avg)
-    # if data_source == "testdata":
-    #     # 获取所有子文件夹
-    #     subfolders = [f.path for f in os.scandir(data_dir) if f.is_dir()]
-    #     subfolders.sort()  # 按字母顺序排序
-        
-    #     if not subfolders:
-    #         print(f"No subfolders found in {data_dir}")
-    #     else:
-    #         scores = []
-    #         print("\nEvaluating each subfolder separately:")
-    #         print("=" * 50)
-            
-    #         for folder in subfolders:
-    #             folder_name = os.path.basename(folder)
-    #             print(f"\nEvaluating folder: {folder_name}")
-                
-    #             # 评估当前子文件夹
-    #             total_score, avg_score = evaluate_model(
-    #                 checkpoint_path, 
-    #                 folder, 
-    #                 max_samples=None,
-    #                 modelmode="train",
-    #                 cuda_device=1
-    #             )
-                
-    #             scores.append(avg_score)
-    #             # print(f"Folder '{folder_name}' score: {avg_score:.4f}")
-            
-    #         # 计算并打印平均分
-    #         overall_avg = sum(scores) / len(scores) if scores else 0
-    #         print("\n" + "=" * 50)
-    #         print(f"\nEvaluation complete for {len(scores)} subfolders")
-    #         print(f"Average score across all subfolders: {overall_avg:.4f}")
-            
-    #         # 打印每个文件夹的详细分数
-    #         print("\nDetailed scores:")
-    #         for folder, score in zip([os.path.basename(f) for f in subfolders], scores):
-    #             print(f"{folder}: {score:.4f}")
-    
+    # sumscores_eval = []
+    # # 评估模型
+    # for i in range(10):
+    #     # 评估模型
+    #     total_score, avg_score = evaluate_model(checkpoint_path, 
+    #                                             data_dir, 
+    #                                             max_samples=None,
+    #                                             modelmode="eval",
+    #                                             cuda_device=1)
+    #     sumscores_eval.append(avg_score)
+    #     print(f"Total Score: {total_score}, Average Score: {avg_score}")
+    # # 计算并打印平均分
+    # overall_avg = sum(sumscores_eval) / len(sumscores_eval) if sumscores_eval else 0
+    # print("\n" + "=" * 50)
+    # print("eval:",overall_avg)

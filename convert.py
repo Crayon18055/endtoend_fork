@@ -52,12 +52,12 @@ def convert2ONNX(input_num, output_num, model_name, device="cpu", opset_version=
 
     print(f"Model converted to ONNX and saved as model/model.onnx")
 if __name__ == "__main__":
-    checkpoint_path = "checkpoints/model_final_20250516_140807.pth"  # 模型权重路径
-    # convert2ONNX(
-    #         input_num=2,
-    #         output_num=1,
-    #         model_name=checkpoint_path,
-    #         device="cuda:0",
-    #         opset_version=17
-    # )
+    checkpoint_path = "checkpoints/model_final_20250522_174939.pth"  # 模型权重路径
+    convert2ONNX(
+            input_num=2,
+            output_num=1,
+            model_name=checkpoint_path,
+            device="cuda:0",
+            opset_version=17
+    )
     subprocess.run(['bash', 'convert.sh', 'model'])

@@ -79,18 +79,19 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
         attention_maps_np = [np.array(att_map) for att_map in attention_maps]
 
         # 处理前4个1600x1600矩阵（从后向前叉乘）
-        result = attention_maps_np[3].mean(axis=0).mean(axis=0)  # 最后一个矩阵，先降维
-        # print("result: ",result.shape)
-        for j in range(3, -1, -1):  # 从倒数第二个到第一个
-            mat = attention_maps_np[j].mean(axis=0).mean(axis=0)  # 当前矩阵降维
-            result = np.matmul(result, mat)  # NumPy矩阵乘法
-            # print("result: ",result.shape)
+        # result = attention_maps_np[0].mean(axis=0).mean(axis=0)  # 最后一个矩阵，先降维
+        # # print("result: ",result.shape)
+        # for j in range(3, -1, -1):  # 从倒数第二个到第一个
+        #     mat = attention_maps_np[j].mean(axis=0).mean(axis=0)  # 当前矩阵降维
+        #     result = np.matmul(result, mat)  # NumPy矩阵乘法
+        #     # print("result: ",result.shape)
         # 处理后4个2x1600矩阵（按位求和）
-        last_four = np.stack([att_map for att_map in attention_maps_np[4:]])  # 4x2x1600
-        sum_last = np.sum(last_four, axis=0).mean(axis=0).mean(axis=0)  # 降维到1600
+        last_four = np.stack([att_map for att_map in attention_maps_np[0:]])  # 4x2x1600
+        sum_last = np.sum(last_four, axis=0).mean(axis=0).mean(axis=0).mean(axis=0)  # 降维到1600
         # print("sum_last: ",sum_last.shape)
         # 最终矩阵乘法
-        attention_map = np.matmul(sum_last, result).mean(axis=0)
+        # attention_map = np.matmul(sum_last, result)
+        attention_map = sum_last
 
         # 如果需要可以转换回torch tensor
         # attention_map = torch.from_numpy(attention_map)
@@ -133,7 +134,7 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
 
 if __name__ == "__main__":
     # 配置参数
-    full_data_dir = "filtered_data/eval_paths/path3"  # 数据目录
+    full_data_dir = "filtered_data/eval_paths/path4"  # 数据目录
     train_data_dir = "filtered_data/small_256/val"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
 
@@ -144,8 +145,8 @@ if __name__ == "__main__":
     data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    # checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250521_130913.pth"  # 模型权重路径
+    checkpoint_path = get_last_checkpoint()
+    # checkpoint_path = "checkpoints/model_final_20250522_133052.pth"  # 模型权重路径
     
 
     if data_source == "fulldata":

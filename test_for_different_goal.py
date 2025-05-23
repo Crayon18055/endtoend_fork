@@ -99,16 +99,16 @@ if __name__ == "__main__":
     # 配置参数
      # 配置参数
     full_data_dir = "filtered_data/all/val"  # 数据目录
-    train_data_dir = "filtered_data/small_256/train"  # 数据目录
+    train_data_dir = "filtered_data/eval_paths/path1"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
 
     #*********************************************************************************
-    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    checkpoint_path = get_last_checkpoint()
-    # checkpoint_path = "checkpoints/model_final_20250507_125438.pth"  # 模型权重路径
+    # checkpoint_path = get_last_checkpoint()
+    checkpoint_path = "checkpoints/model_final_20250522_133052.pth"  # 模型权重路径
 
     if data_source == "fulldata":
         data_dir = full_data_dir
@@ -122,5 +122,5 @@ if __name__ == "__main__":
     test_random_images_with_circle_trg(checkpoint_path, 
                                        data_dir, 
                                        max_samples=256, 
-                                       modelmode="train",
+                                       modelmode="eval",
                                        cuda_device=1)

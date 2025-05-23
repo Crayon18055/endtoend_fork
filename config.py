@@ -9,6 +9,6 @@ config_dict = easydict.EasyDict({
     "attention_heads": 6,
     "attention_dropout": 0.0,
     "dropout": 0.0,
-    "encoder_layers": 4,
+    "encoder_layers": 0,
     "decoder_layers": 4,
 })

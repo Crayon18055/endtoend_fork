@@ -7,15 +7,13 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler
 from torchvision import transforms
-from PIL import Image
 from datetime import datetime
-import matplotlib.pyplot as plt
 import time
-import signal
 from dataloaders import CustomData
 from transformer import Transformer
 from config import config_dict
-
+from torch.utils.tensorboard import SummaryWriter
+from evacuate import eval_in_test_paths
 
 def setup_ddp(rank, world_size):
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
@@ -42,6 +40,8 @@ def get_last_checkpoint():
 
 def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints", pretrained_weights=None):
     setup_ddp(rank, world_size)
+    # 初始化 Writer（自动创建日志目录）
+    writer = SummaryWriter("runs/exp_real_time")  # 路径可自定义
     device = torch.device(f"cuda:{rank}")
     model = Transformer(config_dict).to(device)
 
@@ -57,22 +57,14 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
 
     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=4, pin_memory=True)
-    plt.ion()
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.set_title("Training Loss")
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss")
-    loss_history = []
-    line, = ax.plot([], [], label="Loss")
-    ax.legend()
 
-    def save_and_exit():
+    def save():
         if rank == 0:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             torch.save(model.module.state_dict(), os.path.join(save_dir, f"model_final_{timestamp}.pth"))
             print(f"Final model saved to model_final_{timestamp}.pth")
         cleanup_ddp()
-        exit(0)
+        
     def calculate_score(output, target):
         """
         用户定义的评分函数，支持 batch 维度。
@@ -101,7 +93,6 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
             weight_v * (v_output - v_target) ** 2 +
             weight_kappa * norm_kappa_error ** 2
         )
-        # print(f"score: {score}")
         score = 10 * score
 
         # 返回总分
@@ -123,6 +114,8 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
 
                 output, _, _ = model(batch_images, batch_trg_data)
                 loss = calculate_score(output, batch_target_output)
+                
+                writer.add_scalar("Loss/train_batch", loss.item(), epoch * len(dataloader) + batch_idx)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -133,22 +126,26 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
                     print(f"[Epoch {epoch+1}] Batch {batch_idx+1}, Loss: {loss.item():.4f}, Batch Time: {batch_end_time - batch_start_time:.2f}s")
 
             epoch_end_time = time.time()
+            writer.add_scalar("Loss/train_epoch", epoch_loss, epoch)
             if rank == 0:
                 print(f"=== Epoch {epoch+1} completed. Total Loss: {epoch_loss:.4f}, Time: {epoch_end_time - epoch_start_time:.2f}s ===")
+                # 每10个ep保存一次
+                if (epoch + 1) % 10 == 0:
+                    save()
+                    checkpoint = get_last_checkpoint()
+                    eval_score = eval_in_test_paths(checkpoint)
+                    print(checkpoint, "score : ", eval_score)
+                    writer.add_scalar("eval/score", eval_score, epoch)
 
-            # 更新 loss 历史
-            loss_history.append(epoch_loss)
-            line.set_xdata(range(len(loss_history)))
-            line.set_ydata(loss_history)
-            ax.set_xlim(0, num_epochs)
-            ax.set_ylim(0, max(loss_history) * 1.1)
-            plt.pause(0.01)
     except KeyboardInterrupt:
-        save_and_exit()
+        save()
+        exit(0)
 
-    save_and_exit()
+    save()
+    exit(0)
 
 def main():
+    
     data_source = "fulldata"
 
     if data_source == "fulldata":
@@ -176,7 +173,7 @@ def main():
     os.environ['MASTER_PORT'] = '12355'
 
     mp.spawn(train_pipeline,
-             args=(world_size, dataset, 100, 16, None, "checkpoints", pretrained_weights_path),
+             args=(world_size, dataset, 50, 16, None, "checkpoints", pretrained_weights_path),
              nprocs=world_size,
              join=True)
 if __name__ == "__main__":
