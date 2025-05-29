@@ -8,3 +8,4 @@
 *.onnx
 *.pyc
 /Visualizer
+/__pycache__

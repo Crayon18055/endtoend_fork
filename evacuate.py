@@ -10,7 +10,8 @@ from transformer import Transformer
 
 def load_image(image_path):
     transform = transforms.Compose([
-        transforms.Resize((640, 640)),
+        transforms.Resize((320, 320)),
+        # transforms.Resize((640, 640)),
         transforms.ToTensor(),
     ])
     image = Image.open(image_path).convert("RGB")
@@ -145,6 +146,7 @@ def calculate_score(output, target):
 
 def eval_in_test_paths(checkpoint):
     test_dir = "filtered_data/eval_paths"  # 数据目录
+    # test_dir = "filtered_data/mask_eval_paths"  # 数据目录
     # 获取所有子文件夹
     subfolders = [f.path for f in os.scandir(test_dir) if f.is_dir()]
     subfolders.sort()  # 按字母顺序排序
@@ -197,8 +199,8 @@ if __name__ == "__main__":
     # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    checkpoint_path = get_last_checkpoint()
-    # checkpoint_path = "checkpoints/model_final_20250522_133052.pth"  # 模型权重路径
+    # checkpoint_path = get_last_checkpoint()
+    checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
 
     if data_source == "fulldata":
         test_dir = full_data_dir
@@ -208,6 +210,10 @@ if __name__ == "__main__":
         test_dir =test_data_dir
     else:
         raise ValueError(f"Invalid data source: {data_source}")
+    
+
+    eval_in_test_paths(checkpoint_path)
+
     # sumscores = []
     # # 评估模型
     # for i in range(10):

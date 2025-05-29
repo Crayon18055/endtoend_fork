@@ -55,7 +55,8 @@ class CustomData(Dataset):
 
 
 transform = transforms.Compose([
-    transforms.Resize((640, 640)),
+    transforms.Resize((320, 320)),
+    # transforms.Resize((640, 640)),
     transforms.ToTensor()
 ])
 

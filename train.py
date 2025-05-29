@@ -129,7 +129,7 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
             if rank == 0:
                 print(f"=== Epoch {epoch+1} completed. Total Loss: {epoch_loss:.4f}, Time: {epoch_end_time - epoch_start_time:.2f}s ===")
                 # 每10个ep保存一次
-                if (epoch + 1) % 1 == 0:
+                if (epoch + 1) % 10 == 0:
                     save()
                     checkpoint = get_last_checkpoint()
                     eval_score = eval_in_test_paths(checkpoint)
@@ -157,13 +157,13 @@ def main():
         raise ValueError(f"Invalid data source: {data_source}")
 
     transform = transforms.Compose([
-        transforms.Resize((640, 640)),
+        transforms.Resize((320, 320)),
         transforms.ToTensor()
     ])
 
     dataset = CustomData(data_dir, transform)
-    pretrained_weights_path = None
-    # pretrained_weights_path = get_last_checkpoint()
+    # pretrained_weights_path = None
+    pretrained_weights_path = get_last_checkpoint()
 
     world_size = 2 # 设置训练的GPU数量
 
@@ -172,7 +172,7 @@ def main():
     os.environ['MASTER_PORT'] = '12355'
 
     mp.spawn(train_pipeline,
-             args=(world_size, dataset, 50, 16, None, "checkpoints", pretrained_weights_path),
+             args=(world_size, dataset, 100, 16, None, "checkpoints", pretrained_weights_path),
              nprocs=world_size,
              join=True)
 if __name__ == "__main__":

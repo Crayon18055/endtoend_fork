@@ -126,7 +126,7 @@ class EmbeddingImage(nn.Module):
     """
     def __init__(self, config):
         super().__init__()
-        self.image_size = 640
+        self.image_size = 320
         self.patch_size = 16
         self.model_dim = 768
         self.num_channels = 3

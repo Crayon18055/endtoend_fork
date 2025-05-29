@@ -9,7 +9,7 @@ import numpy as np
 import subprocess
 def load_image(image_path):
     transform = transforms.Compose([
-        transforms.Resize((640, 640)),
+        transforms.Resize((320, 320)),
         transforms.ToTensor(),
     ])
     image = Image.open(image_path).convert("RGB")
@@ -26,7 +26,7 @@ def convert2ONNX(input_num, output_num, model_name, device="cpu", opset_version=
     model.train()
 
 
-    selected_images, selected_rows = get_data_from_dir("filtered_data/all/train", num_samples=1, max_samples=1)
+    selected_images, selected_rows = get_data_from_dir("filtered_data/data2_all", num_samples=1, max_samples=1)
     torch_inputs = [load_image(selected_images[0]).to(device, dtype=torch.float32), torch.rand(1, 2, 1, dtype=torch.float32).to(device)]
 
 
@@ -52,7 +52,7 @@ def convert2ONNX(input_num, output_num, model_name, device="cpu", opset_version=
 
     print(f"Model converted to ONNX and saved as model/model.onnx")
 if __name__ == "__main__":
-    checkpoint_path = "checkpoints/model_final_20250522_174939.pth"  # 模型权重路径
+    checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
     convert2ONNX(
             input_num=2,
             output_num=1,
@@ -60,4 +60,4 @@ if __name__ == "__main__":
             device="cuda:0",
             opset_version=17
     )
-    subprocess.run(['bash', 'convert.sh', 'model'])
+    # subprocess.run(['bash', 'convert.sh', 'model'])

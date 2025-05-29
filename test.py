@@ -12,7 +12,8 @@ import numpy as np
 
 def load_image(image_path):
     transform = transforms.Compose([
-        transforms.Resize((640, 640)),
+        transforms.Resize((320, 320)),
+        # transforms.Resize((640, 640)),
         transforms.ToTensor(),
     ])
     image = Image.open(image_path).convert("RGB")
@@ -58,6 +59,7 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
         _, row = row
         # 加载图片
         get_local.clear()
+        print("image: ", image_path)
         src = load_image(image_path).to(device, dtype=torch.float32)
 
         # 设置 trg 为第 5 和第 6 列
@@ -70,10 +72,12 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
         with torch.no_grad():
             output, _, _ = model(src, trg)
 
+        print("output: ", output)
+
         # 获取缓存中的注意力图
         cache = get_local.cache  # -> {'your_attention_function': [attention_map]}
         attention_maps = cache['MultiHeadAttention.forward']
-
+        
 
         # 假设 attention_maps 是一个包含8个元素的列表，前4个是1600x1600，后4个是2x1600
         attention_maps_np = [np.array(att_map) for att_map in attention_maps]
@@ -114,18 +118,18 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
         image_np = np.array(image)
 
         # 获取注意力图并调整大小
-        attention_image = attention_map.reshape(40, 40)
+        attention_image = attention_map.reshape(20, 20)
         attention_image = attention_image[::-1, ::-1]  # 旋转180度
         attention_image_resized = np.kron(attention_image, np.ones((16, 16)))  # 将注意力图放大到与原图相同大小
 
         # 叠加原图和注意力图
         axes[i].imshow(image_np)  # 显示原图
-        im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.3)  # 叠加注意力图，设置透明度
+        # im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.5)  # 叠加注意力图，设置透明度
         axes[i].set_title(f"Image {i + 1}")
         axes[i].axis("off")
 
         # 添加颜色条
-        fig.colorbar(im, ax=axes[i], fraction=0.046, pad=0.04)
+        # fig.colorbar(im, ax=axes[i], fraction=0.046, pad=0.04)
 
     # 调整布局并显示窗口
     fig.suptitle("Original Images with Attention Maps", fontsize=16)
@@ -135,8 +139,9 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
 if __name__ == "__main__":
     # 配置参数
     full_data_dir = "filtered_data/eval_paths/path4"  # 数据目录
-    train_data_dir = "filtered_data/small_256/val"  # 数据目录
+    train_data_dir = "filtered_data/mask_eval_paths/path1"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
+    small_data_dir = "filtered_data/small_256/val"  # 数据目录
 
     num_samples = 8  # 随机选择的样本数量
 
@@ -144,9 +149,10 @@ if __name__ == "__main__":
     # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
     data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "smalldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    checkpoint_path = get_last_checkpoint()
-    # checkpoint_path = "checkpoints/model_final_20250522_133052.pth"  # 模型权重路径
+    # checkpoint_path = get_last_checkpoint()
+    checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
     
 
     if data_source == "fulldata":
@@ -155,6 +161,8 @@ if __name__ == "__main__":
         data_dir = train_data_dir
     elif data_source == "areadata":
         data_dir = area_data_dir
+    elif data_source == "smalldata":
+        data_dir = small_data_dir
     else:
         raise ValueError(f"Invalid data source: {data_source}")
 

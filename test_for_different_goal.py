@@ -11,7 +11,7 @@ import math
 
 def load_image(image_path):
     transform = transforms.Compose([
-        transforms.Resize((640, 640)),
+        transforms.Resize((320, 320)),
         transforms.ToTensor(),
     ])
     image = Image.open(image_path).convert("RGB")
@@ -99,16 +99,18 @@ if __name__ == "__main__":
     # 配置参数
      # 配置参数
     full_data_dir = "filtered_data/all/val"  # 数据目录
-    train_data_dir = "filtered_data/eval_paths/path1"  # 数据目录
+    train_data_dir = "filtered_data/eval_paths/path2"  # 数据目录
     area_data_dir = "output_images"  # 数据目录
+    data3_dir = "filtered_data/data3"  # 数据目录
 
     #*********************************************************************************
-    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "data3"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
     # checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250522_133052.pth"  # 模型权重路径
+    checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
 
     if data_source == "fulldata":
         data_dir = full_data_dir
@@ -116,11 +118,13 @@ if __name__ == "__main__":
         data_dir = train_data_dir
     elif data_source == "areadata":
         data_dir = area_data_dir
+    elif data_source == "data3":
+        data_dir = data3_dir
     else:
         raise ValueError(f"Invalid data source: {data_source}")
     # 测试随机图片
     test_random_images_with_circle_trg(checkpoint_path, 
                                        data_dir, 
-                                       max_samples=256, 
+                                       max_samples=None, 
                                        modelmode="eval",
                                        cuda_device=1)
