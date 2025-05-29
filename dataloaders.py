@@ -56,6 +56,7 @@ class CustomData(Dataset):
 
 transform = transforms.Compose([
     transforms.Resize((320, 320)),
+    transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
     # transforms.Resize((640, 640)),
     transforms.ToTensor()
 ])

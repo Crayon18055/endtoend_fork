@@ -158,12 +158,13 @@ def main():
 
     transform = transforms.Compose([
         transforms.Resize((320, 320)),
+        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
         transforms.ToTensor()
     ])
 
     dataset = CustomData(data_dir, transform)
-    # pretrained_weights_path = None
-    pretrained_weights_path = get_last_checkpoint()
+    pretrained_weights_path = None
+    # pretrained_weights_path = get_last_checkpoint()
 
     world_size = 2 # 设置训练的GPU数量
 

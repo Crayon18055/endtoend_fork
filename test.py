@@ -9,10 +9,16 @@ from Visualizer.visualizer import get_local
 get_local.activate() # 激活装饰器
 from transformer import Transformer
 import numpy as np
+import torchvision.transforms.functional as F
+from scipy.ndimage import zoom
+
+
+
 
 def load_image(image_path):
     transform = transforms.Compose([
         transforms.Resize((320, 320)),
+               transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
         # transforms.Resize((640, 640)),
         transforms.ToTensor(),
     ])
@@ -106,25 +112,33 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
         trg_text = f"Trg: {[round(val, 4) for val in trg.squeeze().tolist()]}"
 
         # 加载原始图片
-        image = Image.open(image_path).convert("RGB")
-        image = image.rotate(180)
-        draw = ImageDraw.Draw(image)
+        adjusted_image = F.to_pil_image(src.squeeze(0).cpu())  # 转换为 PIL 图像
+        
+        adjusted_image = adjusted_image.rotate(180).resize((640, 640))  # 旋转180度并调整大小
+        draw = ImageDraw.Draw(adjusted_image)
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
         draw.text((10, 10), output_text, fill="red", font=font)
         draw.text((10, 40), target_text, fill="blue", font=font)
         draw.text((10, 70), trg_text, fill="blue", font=font)
 
         # 转换原图为 NumPy 数组
-        image_np = np.array(image)
+        image_np = np.array(adjusted_image)
 
         # 获取注意力图并调整大小
         attention_image = attention_map.reshape(20, 20)
         attention_image = attention_image[::-1, ::-1]  # 旋转180度
-        attention_image_resized = np.kron(attention_image, np.ones((16, 16)))  # 将注意力图放大到与原图相同大小
+        # attention_image_resized = np.kron(attention_image, np.ones((32, 32)))  # 将注意力图放大到与原图相同大小
+        attention_image_resized = zoom(attention_image, zoom=32, order=2)
+        attention_image_resized = np.clip(attention_image_resized, 0, 1)
+        alpha_channel = np.tanh(25 * attention_image) * 0.9  # 使用 tanh 函数将值限制在 [-1, 1]
+        alpha_channel = zoom(alpha_channel, zoom=32, order=1)  # 使用三次插值
+
 
         # 叠加原图和注意力图
         axes[i].imshow(image_np)  # 显示原图
-        # im = axes[i].imshow(attention_image_resized, cmap='hot', alpha=0.5)  # 叠加注意力图，设置透明度
+        axes[i].imshow(attention_image_resized, cmap = "hot", alpha = alpha_channel)  # 叠加注意力图，设置透明度
+        # 创建与热力图相同大小的 alpha 通道
+        # alpha_channel = np.where(attention_image_resized > 0, 0.5, 0)  # 值为 0 的像素透明，其他像素透明度为 0.5
         axes[i].set_title(f"Image {i + 1}")
         axes[i].axis("off")
 
@@ -138,21 +152,20 @@ def test_model(checkpoint_path, data_dir, max_samples=256, modelmode="train", cu
 
 if __name__ == "__main__":
     # 配置参数
-    full_data_dir = "filtered_data/eval_paths/path4"  # 数据目录
-    train_data_dir = "filtered_data/mask_eval_paths/path1"  # 数据目录
-    area_data_dir = "output_images"  # 数据目录
+    full_data_dir = "filtered_data/eval_paths/path3"  # 数据目录
+    train_data_dir = "filtered_data/data2_all"  # 数据目录
+    area_data_dir = "filtered_data/data3"  # 数据目录
     small_data_dir = "filtered_data/small_256/val"  # 数据目录
 
     num_samples = 8  # 随机选择的样本数量
 
     #*********************************************************************************
-    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "smalldata"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    # checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
+    checkpoint_path = get_last_checkpoint()
+    # checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
     
 
     if data_source == "fulldata":

@@ -7,15 +7,21 @@ from config import config_dict
 from get_sample_in_dir import get_data_from_dir
 import os
 import math
-
+import torchvision.transforms.functional as F
+from torchvision.transforms.functional import adjust_brightness, adjust_contrast, adjust_saturation
+import pandas as pd
 
 def load_image(image_path):
     transform = transforms.Compose([
         transforms.Resize((320, 320)),
+        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
         transforms.ToTensor(),
     ])
     image = Image.open(image_path).convert("RGB")
     image = transform(image)
+    # image = adjust_brightness(image, brightness_factor=0.8)  # 固定亮度
+    # image = adjust_contrast(image, contrast_factor=1.3)      # 固定对比度
+    # image = adjust_saturation(image, saturation_factor=1.0) # 固定饱和度
     return image.unsqueeze(0)  # 添加 batch 维度
 
 def get_last_checkpoint():
@@ -48,8 +54,9 @@ def test_random_images_with_circle_trg(checkpoint_path,
         model.eval()
 
     # 随机获取图片和对应数据
-    selected_images, selected_rows = get_data_from_dir(data_dir, 8, max_samples)
-
+    selected_images, selected_rows = get_data_from_dir(data_dir, 1, max_samples)
+    selected_images = selected_images * 8
+    selected_rows = pd.concat([selected_rows] * 8, ignore_index=True)
     # 初始化绘图
     fig, axes = plt.subplots(2, 4, figsize=(16, 8))
     axes = axes.flatten()
@@ -58,11 +65,13 @@ def test_random_images_with_circle_trg(checkpoint_path,
         _, row = row
         # 加载图片
         src = load_image(image_path).to(device, dtype=torch.float32)
-
+        print(f"Processing image {i + 1}: {image_path}")
         # 初始化 PIL 绘图
-        image = Image.open(image_path)
-        image = image.rotate(180)
-        draw = ImageDraw.Draw(image)
+        # 将 src 转换为 PIL 图像
+        adjusted_image = F.to_pil_image(src.squeeze(0).cpu())  # 转换为 PIL 图像
+        
+        adjusted_image = adjusted_image.rotate(180).resize((640, 640))  # 旋转180度并调整大小
+        draw = ImageDraw.Draw(adjusted_image)
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
 
         # 在单位圆上生成 trg 点
@@ -86,7 +95,7 @@ def test_random_images_with_circle_trg(checkpoint_path,
             draw.text((10, 10 + j * 30), f"{output_text} | {trg_text}", fill="red", font=font)
 
         # 显示图片
-        axes[i].imshow(image)
+        axes[i].imshow(adjusted_image)
         axes[i].set_title(f"Image {i + 1}")
         axes[i].axis("off")
 
@@ -104,13 +113,13 @@ if __name__ == "__main__":
     data3_dir = "filtered_data/data3"  # 数据目录
 
     #*********************************************************************************
-    # data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
+    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
     # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
-    data_source = "data3"  # 数据来源："fulldata" 或 "traindata"
+    # data_source = "data3"  # 数据来源："fulldata" 或 "traindata"
     #**********************************************************************************
-    # checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
+    checkpoint_path = get_last_checkpoint()
+    # checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
 
     if data_source == "fulldata":
         data_dir = full_data_dir

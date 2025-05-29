@@ -42,7 +42,8 @@ def get_data_from_dir(data_dir, num_samples=None, max_samples=256):
         selected_rows = df.sample(n=num_samples)
 
     # 获取对应的图片路径
-    image_files = selected_rows.iloc[:, 6].astype(str).apply(lambda x: x.rstrip('.0') if x.endswith('.0') else x) + ".jpg"
+    # image_files = selected_rows.iloc[:, 6].astype(str) + ".jpg"
+    image_files = selected_rows.iloc[:, 6].astype(int).astype(str) + ".jpg"
     selected_images = [os.path.join(image_dir, img_file) for img_file in image_files]
     for img_file in selected_images:
         if not os.path.exists(img_file):
