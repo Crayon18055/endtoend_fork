@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from Visualizer.visualizer import get_local
+from STDCNet import STDCNet, STDC2, STDC1
 
 class MultiHeadAttention(nn.Module):
     def __init__(
@@ -128,46 +129,22 @@ class EmbeddingImage(nn.Module):
         super().__init__()
         self.image_size = 320
         self.patch_size = 16
-        self.model_dim = 768
+        self.model_dim = config.model_dim
         self.num_channels = 3
         self.dropout = config.dropout
 
         # ---------- STDCNet 卷积操作 ----------
         # 定义 STDCNet 的卷积模块
-        self.stdcnet_stem = nn.Sequential(
-            nn.Conv2d(self.num_channels, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-        )  # 输出特征图大小为 [B, 128, 80, 80]
-
-        # ---------- Overlap Patch Embedding ----------
-        # 使用卷积进一步下采样到 patch_size = 16
-        self.proj = nn.Conv2d(
-            in_channels=128,
-            out_channels=self.model_dim,
-            kernel_size=3,
-            stride=2,
-            padding=1
-        )  # 输出特征图大小为 [B, 768, 40, 40]
+        self.stdcnet = STDCNet(base=64, layers=[4, 5, 3], block_num=4, type="cat", in_channels=3)  # 使用 STDC2 或 STDC1
 
         # ---------- 位置编码 ----------
-        num_patches = (self.image_size // self.patch_size) ** 2
+        num_patches = config.num_patch
         self.pos_embed = nn.Parameter(torch.randn(1, num_patches, self.model_dim))
         self.norm = nn.LayerNorm(self.model_dim)
 
     def forward(self, x):
         # x: [B, 3, 640, 640]
-        x = self.stdcnet_stem(x)  # [B, 128, 80, 80]
-        x = self.proj(x)          # [B, 768, 40, 40]
-        # print("BatchNorm 层的 running_mean (均值):", self.stdcnet_stem[1].running_mean)
-        # conv_show = x.mean(dim=0).mean(dim=0)  # [768, 40, 40]
-        # print("conv_show:", conv_show)
+        x = self.stdcnet(x)  # [B, 128, 80, 80]
         x = x.flatten(2).transpose(1, 2)  # [B, N=1600, 768]
         x = self.norm(x)          # LayerNorm 在特征维度
         x = x + self.pos_embed    # 加入位置编码

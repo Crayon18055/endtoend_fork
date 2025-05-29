@@ -205,9 +205,9 @@ class STDCNet(nn.Module):
     def forward(self, x):
         out_feats = []
         x = self.features[0](x)
-        out_feats.append(x)
+        # out_feats.append(x)
         x = self.features[1](x)
-        out_feats.append(x)
+        # out_feats.append(x)
         idx = [
             [2, 2 + self.layers[0]],
             [2 + self.layers[0], 2 + sum(self.layers[0:2])],
@@ -217,7 +217,12 @@ class STDCNet(nn.Module):
             for i in range(start_idx, end_idx):
                 x = self.features[i](x)
             out_feats.append(x)
-        return out_feats
+        # 对 feature2 和 feature3 进行上采样到 [40, 40]
+        feature2_upsampled = F.interpolate(out_feats[1], size=(40, 40), mode='bilinear', align_corners=False)
+        feature3_upsampled = F.interpolate(out_feats[2], size=(40, 40), mode='bilinear', align_corners=False)
+        
+        output = torch.cat([out_feats[0], feature2_upsampled, feature3_upsampled], dim=1)  # 在通道维度拼接
+        return output
 
     def _make_layers(self, in_channels, base, layers, block_num, block, relative_lr):
         features = []
