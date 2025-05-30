@@ -107,9 +107,9 @@ class EmbeddingImage(nn.Module):
 
         # ---------- STDCNet 卷积操作 ----------
         # 定义 STDCNet 的卷积模块
-        base = int(self.image_size // (config.conv_patch / 4)) 
+        # base = int(self.image_size // (config.conv_patch / 8)) 
         # print(f"Base size for STDCNet: {base}")
-        self.stdcnet = STDCNet(base=base, layers=[2, 2, 2], block_num=2, type="cat", in_channels=3)  # 使用 STDC2 或 STDC1
+        self.stdcnet = STDCNet(base=32, layers=[2, 2, 2], block_num=2, type="cat", in_channels=3)  # 使用 STDC2 或 STDC1
 
         # ---------- 位置编码 ----------
         num_patches = config.conv_patch ** 2

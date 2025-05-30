@@ -197,7 +197,6 @@ class STDCNet(nn.Module):
         elif type == "add":
             block = AddBottleneck
         self.layers = layers
-        self.feat_channels = [base // 2, base, base * 4, base * 8, base * 16]
         self.features = self._make_layers(in_channels, base, layers, block_num, block, relative_lr)
         self.pretrained = pretrained
         # 权重初始化和预训练加载可根据需要补充
@@ -207,26 +206,28 @@ class STDCNet(nn.Module):
         x = self.features[0](x)
         # out_feats.append(x)
         x = self.features[1](x)
+        x = self.features[2](x)
         # out_feats.append(x)
         idx = [
-            [2, 2 + self.layers[0]],
-            [2 + self.layers[0], 2 + sum(self.layers[0:2])],
-            [2 + sum(self.layers[0:2]), 2 + sum(self.layers)]
+            [3, 3 + self.layers[0]],
+            [3 + self.layers[0], 3 + sum(self.layers[0:2])],
+            [3 + sum(self.layers[0:2]), 3 + sum(self.layers)]
         ]
         for start_idx, end_idx in idx:
             for i in range(start_idx, end_idx):
                 x = self.features[i](x)
             out_feats.append(x)
         # 对 feature2 和 feature3 进行上采样到 [40, 40]
-        feature2_upsampled = F.interpolate(out_feats[1], size=(40, 40), mode='bilinear', align_corners=False)
-        feature3_upsampled = F.interpolate(out_feats[2], size=(40, 40), mode='bilinear', align_corners=False)
+        feature2_upsampled = F.interpolate(out_feats[1], size=(20, 20), mode='bilinear', align_corners=False)
+        feature3_upsampled = F.interpolate(out_feats[2], size=(20, 20), mode='bilinear', align_corners=False)
         
         output = torch.cat([out_feats[0], feature2_upsampled, feature3_upsampled], dim=1)  # 在通道维度拼接
         return output
 
     def _make_layers(self, in_channels, base, layers, block_num, block, relative_lr):
         features = []
-        features += [ConvBNReLU(in_channels, base // 2, 3, 2)]
+        features += [ConvBNReLU(in_channels, base // 4, 3, 2)]
+        features += [ConvBNReLU(base // 4, base // 2, 3, 2)]
         features += [ConvBNReLU(base // 2, base, 3, 2)]
         for i, layer in enumerate(layers):
             for j in range(layer):

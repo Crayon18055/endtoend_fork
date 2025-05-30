@@ -53,7 +53,7 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
         with torch.no_grad():
             output, _, _ = model(src, trg)
 
-        print("output: ", output)
+        # print("output: ", output)
 
         # 获取缓存中的注意力图
         cache = get_local.cache 
