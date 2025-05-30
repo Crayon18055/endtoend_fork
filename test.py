@@ -51,8 +51,8 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
 
         # 前向推理
         with torch.no_grad():
-            output, _, _ = model(src, trg)
-
+            output, _, att = model(src, trg)
+        print("attention: ", att)
         # print("output: ", output)
 
         # 获取缓存中的注意力图
@@ -76,19 +76,20 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
         image_np = np.array(adjusted_image)
 
         # 获取注意力图并调整
-        attention_image = attention_map.reshape(40, 40)
+        attention_image = attention_map.reshape(20, 20)
+        # print("attention_image.shape: ", attention_image)
         attention_image = attention_image[::-1, ::-1]  # 旋转180度
-        attention_image_resized = zoom(attention_image, zoom=16, order=2)# 使用2次插值
-        alpha_channel = np.tanh(50 * attention_image) * 0.9  # 使用 tanh 函数将值限制在 [-1, 1]
-        alpha_channel = zoom(alpha_channel, zoom=16, order=1)  # 使用1次插值
+        attention_image_resized = zoom(attention_image, zoom=32, order=2)# 使用2次插值
+        alpha_channel = np.tanh(25 * attention_image) * 0.9  # 使用 tanh 函数将值限制在 [-1, 1]
+        alpha_channel = zoom(alpha_channel, zoom=32, order=1)  # 使用1次插值
 
 
         # 叠加原图和注意力图
         axes[i].imshow(image_np)  # 显示原图
         axes[i].imshow(attention_image_resized, cmap = "hot", alpha = alpha_channel)  # 叠加注意力图，设置透明度
-        axes[i].text(10, 30, output_text, color='red', fontsize=12, fontweight='bold')
-        axes[i].text(10, 60, target_text, color='blue', fontsize=12, fontweight='bold')
-        axes[i].text(10, 90, trg_text, color='blue', fontsize=12, fontweight='bold')
+        axes[i].text(10, 30, output_text, color='red', fontsize=10, fontweight='bold')
+        axes[i].text(10, 60, target_text, color='blue', fontsize=10, fontweight='bold')
+        axes[i].text(10, 90, trg_text, color='blue', fontsize=10, fontweight='bold')
         axes[i].set_title(f"Image {i + 1}")
         axes[i].axis("off")
 
@@ -99,8 +100,8 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
 
 if __name__ == "__main__":
     # 配置参数
-    data_dir = "filtered_data/eval_paths/path3"  # 数据目录
-    # data_dir = "filtered_data/data2_all"  # 数据目录
+    # data_dir = "filtered_data/eval_paths/path3"  # 数据目录
+    data_dir = "filtered_data/data2_all"  # 数据目录
     # data_dir = "filtered_data/data3"  # 数据目录
     # data_dir = "filtered_data/small_256/val"  # 数据目录
 
