@@ -3,12 +3,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from Visualizer.visualizer import get_local
-from STDCNet import STDCNet, STDC2, STDC1
+from STDCNet import STDCNet
 
 class MultiHeadAttention(nn.Module):
     def __init__(
             self,
-            input_dim,
+            model_dim,
             num_heads,
             dropout=0.0,
             bias=False,
@@ -16,16 +16,16 @@ class MultiHeadAttention(nn.Module):
             causal=False
     ):
         super().__init__()
-        self.input_dim = input_dim
+        self.model_dim = model_dim
         self.num_heads = num_heads
         self.dropout = dropout
-        self.head_dim = input_dim // num_heads
+        self.head_dim = model_dim // num_heads
         self.encoder_decoder_attention = encoder_decoder_attention
         self.causal = causal
-        self.k_proj = nn.Linear(input_dim, input_dim, bias=bias)
-        self.v_proj = nn.Linear(input_dim, input_dim, bias=bias)
-        self.q_proj = nn.Linear(input_dim, input_dim, bias=bias)
-        self.out_proj = nn.Linear(input_dim, input_dim, bias=bias)
+        self.k_proj = nn.Linear(model_dim, model_dim, bias=bias)
+        self.v_proj = nn.Linear(model_dim, model_dim, bias=bias)
+        self.q_proj = nn.Linear(model_dim, model_dim, bias=bias)
+        self.out_proj = nn.Linear(model_dim, model_dim, bias=bias)
 
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (self.num_heads, self.head_dim,)
@@ -37,7 +37,7 @@ class MultiHeadAttention(nn.Module):
                                       key: torch.Tensor,
                                       value: torch.Tensor,
                                       attention_mask: torch.BoolTensor):
-        attn_weights = torch.matmul(query, key.transpose(-1, -2) / math.sqrt(self.input_dim))
+        attn_weights = torch.matmul(query, key.transpose(-1, -2) / math.sqrt(self.model_dim))
         if attention_mask is not None:
             if self.causal:
                 attn_weights = attn_weights.masked_fill(attention_mask.unsqueeze(0).unsqueeze(1), float("-inf"))
@@ -47,7 +47,7 @@ class MultiHeadAttention(nn.Module):
         attn_probs = F.dropout(attn_weights, p=self.dropout, training=self.training)
         attn_output = torch.matmul(attn_probs, value)
         attn_output = attn_output.permute(0, 2, 1, 3).contiguous()
-        concat_attn_output_shape = attn_output.size()[:-2] + (self.input_dim,)
+        concat_attn_output_shape = attn_output.size()[:-2] + (self.model_dim,)
         attn_output = attn_output.view(*concat_attn_output_shape)
         attn_output = self.out_proj(attn_output)
         return attn_output, attn_weights
@@ -74,12 +74,12 @@ class MultiHeadAttention(nn.Module):
 
 class PositionWiseFeedForward(nn.Module):
 
-    def __init__(self, input_dim: int, d_ff: int, dropout: float = 0.1):
+    def __init__(self, model_dim: int, d_ff: int, dropout: float = 0.1):
         super(PositionWiseFeedForward, self).__init__()
 
         self.activation = nn.ReLU()
-        self.w_1 = nn.Linear(input_dim, d_ff)
-        self.w_2 = nn.Linear(d_ff, input_dim)
+        self.w_1 = nn.Linear(model_dim, d_ff)
+        self.w_2 = nn.Linear(d_ff, model_dim)
         self.dropout = dropout
 
     def forward(self, x):
@@ -91,32 +91,6 @@ class PositionWiseFeedForward(nn.Module):
 
         return x + residual
 
-
-class EmbeddingLidar(nn.Module):
-
-    def __init__(self, config):
-        super().__init__()
-        self.len_lidar = 720
-        self.num_patch = config.num_patch
-        self.dim_patch = self.len_lidar // self.num_patch 
-        self.model_dim = config.model_dim
-        self.dropout = config.dropout
-        self.pos_embed = nn.Parameter(torch.randn(self.num_patch, self.model_dim))
-
-        self.linear = nn.Linear(self.dim_patch, self.model_dim)
-
-    def forward(self, inputs):
-        x = inputs.view([-1, self.num_patch, self.dim_patch])
-        x = self.linear(x)
-        x = x + self.pos_embed
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        return x
-
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
 class EmbeddingImage(nn.Module):
     r"""
     改进版图像嵌入：
@@ -127,25 +101,24 @@ class EmbeddingImage(nn.Module):
     """
     def __init__(self, config):
         super().__init__()
-        self.image_size = 320
-        self.patch_size = 16
+        self.image_size = config.image_size
         self.model_dim = config.model_dim
-        self.num_channels = 3
         self.dropout = config.dropout
 
         # ---------- STDCNet 卷积操作 ----------
         # 定义 STDCNet 的卷积模块
-        self.stdcnet = STDCNet(base=64, layers=[4, 5, 3], block_num=4, type="cat", in_channels=3)  # 使用 STDC2 或 STDC1
+        base = int(self.image_size // (config.conv_patch / 4)) 
+        # print(f"Base size for STDCNet: {base}")
+        self.stdcnet = STDCNet(base=base, layers=[2, 2, 2], block_num=2, type="cat", in_channels=3)  # 使用 STDC2 或 STDC1
 
         # ---------- 位置编码 ----------
-        num_patches = config.num_patch
+        num_patches = config.conv_patch ** 2
         self.pos_embed = nn.Parameter(torch.randn(1, num_patches, self.model_dim))
         self.norm = nn.LayerNorm(self.model_dim)
 
     def forward(self, x):
-        # x: [B, 3, 640, 640]
-        x = self.stdcnet(x)  # [B, 128, 80, 80]
-        x = x.flatten(2).transpose(1, 2)  # [B, N=1600, 768]
+        x = self.stdcnet(x)  
+        x = x.flatten(2).transpose(1, 2)  
         x = self.norm(x)          # LayerNorm 在特征维度
         x = x + self.pos_embed    # 加入位置编码
         x = F.dropout(x, p=self.dropout, training=self.training)
@@ -156,17 +129,17 @@ class EncoderLayer(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.input_dim = config.input_dim
+        self.model_dim = config.model_dim
         self.ffn_dim = config.ffn_dim
         self.self_attn = MultiHeadAttention(
-            input_dim=self.input_dim,
+            model_dim=self.model_dim,
             num_heads=config.attention_heads,
             dropout=config.attention_dropout)
-        self.self_attn_layer_norm = nn.LayerNorm(self.input_dim)
+        self.self_attn_layer_norm = nn.LayerNorm(self.model_dim)
         self.dropout = config.dropout
         self.activation_fn = nn.ReLU()
-        self.PositionWiseFeedForward = PositionWiseFeedForward(self.input_dim, self.ffn_dim, config.dropout)
-        self.final_layer_norm = nn.LayerNorm(self.input_dim)
+        self.PositionWiseFeedForward = PositionWiseFeedForward(self.model_dim, self.ffn_dim, config.dropout)
+        self.final_layer_norm = nn.LayerNorm(self.model_dim)
 
     def forward(self, x, encoder_padding_mask):
         residual = x
@@ -203,19 +176,19 @@ class DecoderLayer(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.input_dim = config.input_dim
+        self.model_dim = config.model_dim
         self.ffn_dim = config.ffn_dim
         self.dropout = config.dropout
-        self.self_attn_layer_norm = nn.LayerNorm(self.input_dim)
+        self.self_attn_layer_norm = nn.LayerNorm(self.model_dim)
         self.encoder_attn = MultiHeadAttention(
-            input_dim=self.input_dim,
+            model_dim=self.model_dim,
             num_heads=config.attention_heads,
             dropout=config.attention_dropout,
             encoder_decoder_attention=True,
         )
-        self.encoder_attn_layer_norm = nn.LayerNorm(self.input_dim)
-        self.PositionWiseFeedForward = PositionWiseFeedForward(self.input_dim, self.ffn_dim, config.dropout)
-        self.final_layer_norm = nn.LayerNorm(self.input_dim)
+        self.encoder_attn_layer_norm = nn.LayerNorm(self.model_dim)
+        self.PositionWiseFeedForward = PositionWiseFeedForward(self.model_dim, self.ffn_dim, config.dropout)
+        self.final_layer_norm = nn.LayerNorm(self.model_dim)
 
     def forward(
             self,

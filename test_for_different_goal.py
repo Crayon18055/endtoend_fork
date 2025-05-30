@@ -1,43 +1,18 @@
 import torch
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
-from torchvision import transforms
 from transformer import Transformer
 from config import config_dict
-from get_sample_in_dir import get_data_from_dir
+from dataloaders import get_data_from_dir, load_image, get_last_checkpoint
 import os
 import math
 import torchvision.transforms.functional as F
-from torchvision.transforms.functional import adjust_brightness, adjust_contrast, adjust_saturation
 import pandas as pd
 
-def load_image(image_path):
-    transform = transforms.Compose([
-        transforms.Resize((320, 320)),
-        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
-        transforms.ToTensor(),
-    ])
-    image = Image.open(image_path).convert("RGB")
-    image = transform(image)
-    # image = adjust_brightness(image, brightness_factor=0.8)  # 固定亮度
-    # image = adjust_contrast(image, contrast_factor=1.3)      # 固定对比度
-    # image = adjust_saturation(image, saturation_factor=1.0) # 固定饱和度
-    return image.unsqueeze(0)  # 添加 batch 维度
-
-def get_last_checkpoint():
-    checkpoint_dir = "checkpoints"  # 假设权重文件保存在 "checkpoints" 目录下
-    if not os.path.exists(checkpoint_dir):
-        raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_dir}")
-    checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
-    if not checkpoint_files:
-        raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
-    checkpoint_path = max(checkpoint_files, key=os.path.getmtime)  # 按修改时间选择最新的文件
-    return checkpoint_path
 
 def test_random_images_with_circle_trg(checkpoint_path, 
                                        data_dir,  
                                        max_samples=256, 
-                                       modelmode="train",
                                        cuda_device=1):
     # 配置设备
     if cuda_device == 0:
@@ -48,15 +23,15 @@ def test_random_images_with_circle_trg(checkpoint_path,
     # 加载模型
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    if modelmode == "train":
-        model.train()
-    else:
-        model.eval()
+    model.eval()
 
-    # 随机获取图片和对应数据
-    selected_images, selected_rows = get_data_from_dir(data_dir, 1, max_samples)
-    selected_images = selected_images * 8
-    selected_rows = pd.concat([selected_rows] * 8, ignore_index=True)
+    # 随机获取8张图片和对应数据
+    selected_images, selected_rows = get_data_from_dir(data_dir, 8, max_samples)
+    # 如需要一张图片多次显示，可以取消下面的注释
+    # selected_images, selected_rows = get_data_from_dir(data_dir, 1, max_samples)
+    # selected_images = selected_images * 8
+    # selected_rows = pd.concat([selected_rows] * 8, ignore_index=True)
+
     # 初始化绘图
     fig, axes = plt.subplots(2, 4, figsize=(16, 8))
     axes = axes.flatten()
@@ -66,36 +41,32 @@ def test_random_images_with_circle_trg(checkpoint_path,
         # 加载图片
         src = load_image(image_path).to(device, dtype=torch.float32)
         print(f"Processing image {i + 1}: {image_path}")
-        # 初始化 PIL 绘图
+        
         # 将 src 转换为 PIL 图像
         adjusted_image = F.to_pil_image(src.squeeze(0).cpu())  # 转换为 PIL 图像
-        
         adjusted_image = adjusted_image.rotate(180).resize((640, 640))  # 旋转180度并调整大小
         draw = ImageDraw.Draw(adjusted_image)
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
 
         # 在单位圆上生成 trg 点
         for j in range(9):
-            angle = math.pi * j / (9 - 1)- math.pi / 2  # 从上方开始
+            angle = math.pi * j / (9 - 1)- math.pi / 2  # 绕车前半圆9个点
             trg_vector = [math.cos(angle), math.sin(angle)]
             trg = torch.tensor(trg_vector, dtype=torch.float32).view(1, 2, 1).to(device)
 
             # 前向推理
             with torch.no_grad():
                 output, _, _ = model(src, trg)
-                # output = output * (target_max - target_min) + target_min
-                # output[:, 1] = output[:, 1] * (target_max - target_min) + target_min
 
             # 打印输出结果
             output_text = f"Output: {[round(val, 4) for val in output.squeeze().tolist()]}"
             trg_text = f"Trg: {[round(val, 4) for val in trg.squeeze().tolist()]}"
-            # print(f"Image {i + 1}, Point {j + 1}: {output_text}, {trg_text}")
 
             # 在图片上写入输出结果
             draw.text((10, 10 + j * 30), f"{output_text} | {trg_text}", fill="red", font=font)
 
         # 显示图片
-        axes[i].imshow(adjusted_image)
+        axes[i].imshow(draw._image)
         axes[i].set_title(f"Image {i + 1}")
         axes[i].axis("off")
 
@@ -105,35 +76,17 @@ def test_random_images_with_circle_trg(checkpoint_path,
 
 
 if __name__ == "__main__":
-    # 配置参数
      # 配置参数
-    full_data_dir = "filtered_data/all/val"  # 数据目录
-    train_data_dir = "filtered_data/eval_paths/path2"  # 数据目录
-    area_data_dir = "output_images"  # 数据目录
-    data3_dir = "filtered_data/data3"  # 数据目录
+    # data_dir = "filtered_data/all/val" 
+    data_dir = "filtered_data/eval_paths/path2" 
+    # data_dir = "output_images" 
+    # data_dir = "filtered_data/data3" 
 
-    #*********************************************************************************
-    data_source = "traindata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "fulldata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "areadata"  # 数据来源："fulldata" 或 "traindata"
-    # data_source = "data3"  # 数据来源："fulldata" 或 "traindata"
-    #**********************************************************************************
     checkpoint_path = get_last_checkpoint()
     # checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
 
-    if data_source == "fulldata":
-        data_dir = full_data_dir
-    elif data_source == "traindata":
-        data_dir = train_data_dir
-    elif data_source == "areadata":
-        data_dir = area_data_dir
-    elif data_source == "data3":
-        data_dir = data3_dir
-    else:
-        raise ValueError(f"Invalid data source: {data_source}")
     # 测试随机图片
     test_random_images_with_circle_trg(checkpoint_path, 
                                        data_dir, 
                                        max_samples=None, 
-                                       modelmode="eval",
                                        cuda_device=1)

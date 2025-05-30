@@ -2,10 +2,10 @@ import easydict
 
 
 config_dict = easydict.EasyDict({
-    "input_dim": 1792,
-    "num_patch": 1600,
-    "model_dim": 1792,
-    "ffn_dim": 2048,
+    "image_size": 320,
+    "conv_patch": 40,
+    "model_dim": 896,
+    "ffn_dim": 1024,
     "attention_heads": 4,
     "attention_dropout": 0.0,
     "dropout": 0.0,

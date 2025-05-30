@@ -249,9 +249,29 @@ class STDCNet(nn.Module):
                         )
                     )
         return nn.ModuleList(features)
+    
+def test_stdcnet():
+    # 创建一个 STDCNet 网络实例
+    model = STDCNet(base=32, layers=[2, 2, 2], block_num=2, type="cat", in_channels=3)
+    
+    # 打印网络结构
+    print(model)
 
-def STDC2(**kwargs):
-    return STDCNet(base=64, layers=[4, 5, 3], **kwargs)
+    input_tensor = torch.randn(1, 3, 320, 320)
+    
+    # 前向传播
+    try:
+        outputs = model(input_tensor)
+        
+        # 打印每个输出特征图的形状
+        print("Network forward pass successful!")
+        print("Output feature shapes:")
+        for i, out in enumerate(outputs):
+            print(f"Feature {i + 1}: {out.shape}")
+    except Exception as e:
+        print("Error during forward pass:")
+        print(e)
 
-def STDC1(**kwargs):
-    return STDCNet(base=64, layers=[2, 2, 2], **kwargs)
+# 运行测试
+if __name__ == "__main__":
+    test_stdcnet()

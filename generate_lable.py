@@ -18,7 +18,7 @@ def generate_label_file(image_dir, output_txt):
             # 去除文件名的扩展名
             file_name_without_ext = os.path.splitext(image_file)[0]
             # 构造一行数据，最后一列是文件名，其他列填充0
-            line = "0,0,0,0,0,0," + file_name_without_ext
+            line = "0,0,0,0,1,0," + file_name_without_ext
             # 写入文件
             txt_file.write(line + '\n')
 

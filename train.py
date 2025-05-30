@@ -14,6 +14,7 @@ from transformer import Transformer
 from config import config_dict
 from torch.utils.tensorboard import SummaryWriter
 from evacuate import eval_in_test_paths
+from dataloaders import get_last_checkpoint, transform
 
 def setup_ddp(rank, world_size):
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
@@ -21,22 +22,6 @@ def setup_ddp(rank, world_size):
 
 def cleanup_ddp():
     dist.destroy_process_group()
-
-def normalize_vector(data):
-    length = torch.sqrt(data[:, 0]**2 + data[:, 1]**2).unsqueeze(-1)
-    length[length == 0] = 1.0
-    return data / length
-
-def get_last_checkpoint():
-    checkpoint_dir = "checkpoints"  # 假设权重文件保存在 "checkpoints" 目录下
-    if not os.path.exists(checkpoint_dir):
-        raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_dir}")
-    checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
-    if not checkpoint_files:
-        raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
-    checkpoint_path = max(checkpoint_files, key=os.path.getmtime)  # 按修改时间选择最新的文件
-    print(f"Checkpoint path: {checkpoint_path}")
-    return checkpoint_path
 
 def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max_samples=None, save_dir="checkpoints", pretrained_weights=None):
     setup_ddp(rank, world_size)
@@ -143,32 +128,23 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
     save()
     cleanup_ddp()
     exit(0)
+
 def main():
-    
-    data_source = "fulldata"
 
-    if data_source == "fulldata":
-        data_dir = "filtered_data/data2_all"
-    elif data_source == "smalldata":
-        data_dir = "filtered_data2/small_256/train"
-    elif data_source == "areadata":
-        data_dir = "filtered_data/ground_mask_all/train"
-    else:
-        raise ValueError(f"Invalid data source: {data_source}")
+    data_dir = "filtered_data/data2_all"
 
-    transform = transforms.Compose([
-        transforms.Resize((320, 320)),
-        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
-        transforms.ToTensor()
-    ])
+    # data_dir = "filtered_data2/small_256/train"
+
+    # data_dir = "filtered_data/ground_mask_all/train"
 
     dataset = CustomData(data_dir, transform)
-    pretrained_weights_path = None
-    # pretrained_weights_path = get_last_checkpoint()
+
+    # pretrained_weights_path = None
+    pretrained_weights_path = get_last_checkpoint()
 
     world_size = 2 # 设置训练的GPU数量
 
-    # ✅ 添加 DDP 环境变量
+    # 添加 DDP 环境变量
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
 

@@ -4,6 +4,8 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 import pandas as pd
 from PIL import Image
+import random
+from config import config_dict
 
 class CustomData(Dataset):
     def __init__(self, data_root, transform=None):
@@ -53,40 +55,79 @@ class CustomData(Dataset):
         global_point = torch.tensor(global_point, dtype=torch.float32).unsqueeze(-1)
         return image, vw, global_point
 
+def get_data_from_dir(data_dir, num_samples=None, max_samples=256):
+    """
+    从指定目录中获取数据。
+    如果未指定 num_samples，则返回所有数据。
 
+    Args:
+        data_dir (str): 数据目录路径。
+        num_samples (int, optional): 要随机选择的样本数量。如果为 None，则返回所有数据。
+
+    Returns:
+        list: 图片路径列表。
+        DataFrame: 数据集的 DataFrame。
+    """
+    # 获取过滤后的数据目录
+    txt_dir = os.path.join(data_dir)
+    image_dir = os.path.join(data_dir, "images")
+    if not os.path.exists(txt_dir) or not os.path.exists(image_dir):
+        raise FileNotFoundError(f"Data directory not found: {data_dir}")
+
+    # 随机选择一个 .txt 文件
+    txt_files = [os.path.join(txt_dir, f) for f in os.listdir(txt_dir) if f.endswith('.txt')]
+    if not txt_files:
+        raise FileNotFoundError(f"No .txt files found in directory: {txt_dir}")
+    selected_txt_file = random.choice(txt_files)
+
+    # 加载 .txt 文件为 DataFrame
+    df = pd.read_csv(selected_txt_file, header=None, delimiter=',')
+    if max_samples is not None and max_samples > 0:
+        df = df.head(max_samples)  # 限制读取的样本数量
+
+    # 如果未指定 num_samples，则返回所有数据
+    if num_samples is None:
+        selected_rows = df
+    else:
+        # 随机选择 num_samples 行数据
+        if len(df) < num_samples:
+            raise ValueError(f"Not enough rows in the selected file: {selected_txt_file}")
+        selected_rows = df.sample(n=num_samples)
+
+    # 获取对应的图片路径
+    # image_files = selected_rows.iloc[:, 6].astype(str) + ".jpg"
+    image_files = selected_rows.iloc[:, 6].astype(int).astype(str) + ".jpg"
+    selected_images = [os.path.join(image_dir, img_file) for img_file in image_files]
+    for img_file in selected_images:
+        if not os.path.exists(img_file):
+            raise FileNotFoundError(f"Image not found: {img_file}")
+
+    print("Selected images and data loaded.")
+    return selected_images, selected_rows
+
+image_size = config_dict['image_size']
 transform = transforms.Compose([
-    transforms.Resize((320, 320)),
+    transforms.Resize((image_size, image_size)),
     transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
-    # transforms.Resize((640, 640)),
-    transforms.ToTensor()
+    transforms.ToTensor(),
 ])
 
-
-if __name__ == "__main__":
-    data_root = "filtered_data/small_256/train"
-
-    dataset = CustomData(data_root, transform)
-
-    img, vw, global_point = dataset.__getitem__(0)
-    length = dataset.__len__()
-    print(f"data length: {length}")
-    print(f"sample0: {vw, global_point}")
-
-    dataloader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=8)
+def load_image(image_path):
+    image = Image.open(image_path).convert("RGB")
+    image = transform(image)
+    return image.unsqueeze(0)  # 添加 batch 维度
 
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    for epoch in range(5):
-
-        for images, vws, global_points in dataloader:
-            images = images.to(device)
-            vws = vws.to(device)
-            global_points = global_points.to(device)
-            
-            print(f"vws: {vws}")
-            print(f"global_points: {global_points}")
-
-            # infer
+def get_last_checkpoint():
+    checkpoint_dir = "checkpoints"  # 假设权重文件保存在 "checkpoints" 目录下
+    if not os.path.exists(checkpoint_dir):
+        raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_dir}")
+    checkpoint_files = [os.path.join(checkpoint_dir, f) for f in os.listdir(checkpoint_dir) if f.endswith('.pth')]
+    if not checkpoint_files:
+        raise FileNotFoundError(f"No checkpoint files found in directory: {checkpoint_dir}")
+    checkpoint_path = max(checkpoint_files, key=os.path.getmtime)  # 按修改时间选择最新的文件
+    print(f"Checkpoint path: {checkpoint_path}")
+    return checkpoint_path
 
         
 

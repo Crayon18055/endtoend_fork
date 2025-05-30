@@ -1,20 +1,9 @@
 import torch
-
-from PIL import Image, ImageDraw, ImageFont
-from torchvision import transforms
 from config import config_dict
-from get_sample_in_dir import get_data_from_dir
+from dataloaders import get_data_from_dir, load_image
 from transformer import Transformer
 import numpy as np
 import subprocess
-def load_image(image_path):
-    transform = transforms.Compose([
-        transforms.Resize((320, 320)),
-        transforms.ToTensor(),
-    ])
-    image = Image.open(image_path).convert("RGB")
-    image = transform(image)
-    return image.unsqueeze(0)  # 添加 batch 维度
 
 
 def convert2ONNX(input_num, output_num, model_name, device="cpu", opset_version=17):
@@ -23,12 +12,12 @@ def convert2ONNX(input_num, output_num, model_name, device="cpu", opset_version=
     model = Transformer(config_dict).to(device, dtype=torch.float32)
     model.load_state_dict(torch.load(model_name, map_location=device))
     # model = torch.load(f"{model_name}").to(device, dtype=torch.float64)
-    model.train()
+    model.eval()
 
-
-    selected_images, selected_rows = get_data_from_dir("filtered_data/data2_all", num_samples=1, max_samples=1)
-    torch_inputs = [load_image(selected_images[0]).to(device, dtype=torch.float32), torch.rand(1, 2, 1, dtype=torch.float32).to(device)]
-
+    #随便加载一张图片作为输入，随机生成的第二个输入
+    selected_images, _ = get_data_from_dir("filtered_data/data2_all", num_samples=1, max_samples=1)
+    torch_inputs = [load_image(selected_images[0]).to(device, dtype=torch.float32), 
+                    torch.rand(1, 2, 1, dtype=torch.float32).to(device)]
 
     # 动态设置输入名称和动态轴
     input_names = [f"input{i+1}" for i in range(input_num)]
@@ -52,7 +41,10 @@ def convert2ONNX(input_num, output_num, model_name, device="cpu", opset_version=
 
     print(f"Model converted to ONNX and saved as model/model.onnx")
 if __name__ == "__main__":
+
     checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
+
+    # 先转换为ONNX格式
     convert2ONNX(
             input_num=2,
             output_num=1,
@@ -60,4 +52,9 @@ if __name__ == "__main__":
             device="cuda:0",
             opset_version=17
     )
-    # subprocess.run(['bash', 'convert.sh', 'model'])
+
+    # 然后转化为MNN
+    # subprocess.run(['bash', 'convert_to_MNN.sh', 'model'])
+
+    # 转化为OpenVINO
+    # subprocess.run(['bash', 'convert_to_OpenVINO.sh'])
