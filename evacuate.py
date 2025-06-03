@@ -90,8 +90,8 @@ def calculate_score(output, target):
     return score
 
 def eval_in_test_paths(checkpoint):
-    test_dir = "filtered_data/eval_paths"  # 数据目录
-    # test_dir = "filtered_data/mask_eval_paths"  # 数据目录
+    # test_dir = "filtered_data/eval_paths"  # 数据目录
+    test_dir = "filtered_data/mask_eval_paths"  # 数据目录
 
     # 获取所有子文件夹
     subfolders = [f.path for f in os.scandir(test_dir) if f.is_dir()]

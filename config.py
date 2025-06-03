@@ -4,7 +4,7 @@ import easydict
 config_dict = easydict.EasyDict({
     "image_size": 320,
     "conv_patch": 20,
-    "model_dim": 768,
+    "model_dim": 384,
     "ffn_dim": 1024,
     "attention_heads": 6,
     "attention_dropout": 0.0,

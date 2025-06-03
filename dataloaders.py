@@ -46,7 +46,7 @@ class CustomData(Dataset):
     
     def __getitem__(self, idx):
         img_path, vw, global_point = self.samples[idx]
-        image = Image.open(img_path).convert("RGB")
+        image = Image.open(img_path).convert("L")
 
         if self.transform:
             image = self.transform(image)
@@ -109,12 +109,12 @@ def get_data_from_dir(data_dir, num_samples=None, max_samples=256):
 image_size = config_dict['image_size']
 transform = transforms.Compose([
     transforms.Resize((image_size, image_size)),
-    transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
+    # transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
     transforms.ToTensor(),
 ])
 
 def load_image(image_path):
-    image = Image.open(image_path).convert("RGB")
+    image = Image.open(image_path).convert("L")
     image = transform(image)
     return image.unsqueeze(0)  # 添加 batch 维度
 

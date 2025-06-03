@@ -131,16 +131,16 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
 
 def main():
 
-    data_dir = "filtered_data/data2_all"
+    # data_dir = "filtered_data/data2_all"
 
-    # data_dir = "filtered_data2/small_256/train"
+    data_dir = "filtered_data/mask_all"
 
     # data_dir = "filtered_data/ground_mask_all/train"
 
     dataset = CustomData(data_dir, transform)
 
-    # pretrained_weights_path = None
-    pretrained_weights_path = get_last_checkpoint()
+    pretrained_weights_path = None
+    # pretrained_weights_path = get_last_checkpoint()
 
     world_size = 2 # 设置训练的GPU数量
 
