@@ -42,7 +42,7 @@ def convert2ONNX(input_num, output_num, model_name, device="cpu", opset_version=
     print(f"Model converted to ONNX and saved as model/model.onnx")
 if __name__ == "__main__":
 
-    checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
+    checkpoint_path = "checkpoints/model_final_20250529_115450.pth"  # 模型权重路径
 
     # 先转换为ONNX格式
     convert2ONNX(
@@ -57,4 +57,4 @@ if __name__ == "__main__":
     # subprocess.run(['bash', 'convert_to_MNN.sh', 'model'])
 
     # 转化为OpenVINO
-    # subprocess.run(['bash', 'convert_to_OpenVINO.sh'])
+    subprocess.run(['bash', 'convert_to_OpenVINO.sh'])
