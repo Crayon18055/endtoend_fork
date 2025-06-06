@@ -140,8 +140,8 @@ if __name__ == "__main__":
     # data_dir = "output_images" 
 
 
-    checkpoint_path = get_last_checkpoint()
-    # checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径
+    # checkpoint_path = get_last_checkpoint()
+    checkpoint_path = "checkpoints/model_final_20250529_115450.pth"  # 模型权重路径
 
     
 

@@ -37,7 +37,7 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
             print(f"Loaded pretrained weights from {pretrained_weights}")
 
     model = DDP(model, device_ids=[rank], find_unused_parameters=True)
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=1e-6)
     os.makedirs(save_dir, exist_ok=True)
 
     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
@@ -114,7 +114,7 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
             if rank == 0:
                 print(f"=== Epoch {epoch+1} completed. Total Loss: {epoch_loss:.4f}, Time: {epoch_end_time - epoch_start_time:.2f}s ===")
                 # 每10个ep保存一次
-                if (epoch + 1) % 10 == 0:
+                if (epoch + 1) % 5 == 0:
                     save()
                     checkpoint = get_last_checkpoint()
                     eval_score = eval_in_test_paths(checkpoint)
@@ -131,15 +131,16 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
 
 def main():
 
-    data_dir = "filtered_data/data2_all"
+    data_dir = "filtered_data/data4"
 
     # data_dir = "filtered_data2/small_256/train"
 
-    # data_dir = "filtered_data/ground_mask_all/train"
+    # data_dir = "filtered_data/test3/s1"
 
     dataset = CustomData(data_dir, transform)
 
     # pretrained_weights_path = None
+    # pretrained_weights_path = "checkpoints/model_final_20250529_115450.pth"  # 模型权重路径
     pretrained_weights_path = get_last_checkpoint()
 
     world_size = 2 # 设置训练的GPU数量
@@ -149,7 +150,7 @@ def main():
     os.environ['MASTER_PORT'] = '12355'
 
     mp.spawn(train_pipeline,
-             args=(world_size, dataset, 100, 16, None, "checkpoints", pretrained_weights_path),
+             args=(world_size, dataset, 30, 8, None, "checkpoints", pretrained_weights_path),
              nprocs=world_size,
              join=True)
 if __name__ == "__main__":

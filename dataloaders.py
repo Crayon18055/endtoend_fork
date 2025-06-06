@@ -25,6 +25,7 @@ class CustomData(Dataset):
         df = pd.read_csv(label_txt, header=None, delimiter=',')
 
         for _, line in df.iterrows():
+            # print(f"Processing line: {line}")
             img_path = os.path.join(dataset, "images", f"{int(line[6])}.jpg")
             vw = list(map(float, (line[2], line[3])))
             
@@ -47,6 +48,12 @@ class CustomData(Dataset):
     def __getitem__(self, idx):
         img_path, vw, global_point = self.samples[idx]
         image = Image.open(img_path).convert("RGB")
+
+        # 50% 概率左右翻转图片
+        if random.random() < 0.5:
+            image = image.transpose(Image.FLIP_LEFT_RIGHT)  # 左右翻转图片
+            vw[1] = -vw[1]  # 翻转 vw 的 y 坐标
+            global_point[1] = -global_point[1]  # 翻转 global_point 的 y 坐标
 
         if self.transform:
             image = self.transform(image)
@@ -109,12 +116,22 @@ def get_data_from_dir(data_dir, num_samples=None, max_samples=256):
 image_size = config_dict['image_size']
 transform = transforms.Compose([
     transforms.Resize((image_size, image_size)),
-    transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
+    # transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
     transforms.ToTensor(),
 ])
 
 def load_image(image_path):
     image = Image.open(image_path).convert("RGB")
+    # 打印像素值
+    # 按像素位置打印 RGB 值
+    image = image.resize((320, 320))
+    pixel_values = list(image.getdata())  # 获取图像的所有像素值
+    width, height = image.size
+    print("Pixel values by position:")
+    for y in range(100, 111):
+        for x in range(100, 111):
+            pixel = pixel_values[y * width + x]  # 根据位置计算像素索引
+            print(f"Position ({y}, {x}): {pixel}")
     image = transform(image)
     return image.unsqueeze(0)  # 添加 batch 维度
 
@@ -130,7 +147,7 @@ def get_last_checkpoint():
     print(f"Checkpoint path: {checkpoint_path}")
     return checkpoint_path
 
-        
+
 
 
 

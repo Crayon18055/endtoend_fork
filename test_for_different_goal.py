@@ -80,7 +80,7 @@ if __name__ == "__main__":
     # data_dir = "filtered_data/all/val" 
     data_dir = "filtered_data/eval_paths/path2" 
     # data_dir = "output_images" 
-    # data_dir = "filtered_data/data3" 
+    data_dir = "filtered_data/test3/s1" 
 
     checkpoint_path = get_last_checkpoint()
     # checkpoint_path = "checkpoints/model_final_20250527_200624.pth"  # 模型权重路径

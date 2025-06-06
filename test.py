@@ -13,6 +13,7 @@ import torchvision.transforms.functional as F
 from scipy.ndimage import zoom
 from dataloaders import load_image, get_last_checkpoint
 import pandas as pd
+import random
 
 
 def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
@@ -28,11 +29,13 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
     model.eval()
 
     # # 随机获取图片和对应数据
-    selected_images, selected_rows = get_data_from_dir(data_dir, num_samples=8, max_samples=max_samples)
+    # selected_images, selected_rows = get_data_from_dir(data_dir, num_samples=8, max_samples=max_samples)
     # 如需要一张图片多次显示，可以取消下面的注释
-    # selected_images, selected_rows = get_data_from_dir(data_dir, 1, max_samples)
-    # selected_images = selected_images * 8
-    # selected_rows = pd.concat([selected_rows] * 8, ignore_index=True)
+    selected_images, selected_rows = get_data_from_dir(data_dir, 1, max_samples)
+    print("selected_images: ", selected_images)
+    selected_images = ["filtered_data/data2_all/images/1161842659393.jpg"]
+    selected_images = selected_images * 8
+    selected_rows = pd.concat([selected_rows] * 8, ignore_index=True)
 
     # 初始化窗口
     fig, axes = plt.subplots(2, 4, figsize=(16, 8))  # 用于显示叠加图像
@@ -46,13 +49,22 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
         # 加载图片
         print("processing image: ", image_path)
         src = load_image(image_path).to(device, dtype=torch.float32)
+        print("src: ", src)
+
+        trg_vector = row[[4, 5]].values.astype(float)
+        trg_vector[0] = 0.948553
+        trg_vector[1] = -0.316617
+
+        # 50% 概率翻转图像和 trg
+        # if random.random() < 0.5:
+        #     src = F.hflip(src)  # 水平翻转图像
+        #     trg_vector[1] = -trg_vector[1]  # 翻转 trg 的 y 坐标
+        #     row[3] = -row[3]  # 翻转 row 的 y 坐标
 
         # 根据数据集设置归一化的trg
-        trg_vector = row[[4, 5]].values.astype(float)
         norm = (trg_vector[0]**2 + trg_vector[1]**2)**0.5
         trg_vector = trg_vector / norm
         trg = torch.tensor(trg_vector, dtype=torch.float32).view(1, 2, 1).to(device)
-
         # 前向推理
         with torch.no_grad():
             output, _, _ = model(src, trg)
@@ -105,13 +117,14 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
 
 if __name__ == "__main__":
     # 配置参数
-    data_dir = "filtered_data/eval_paths/path2"  # 数据目录
-    # data_dir = "filtered_data/data2_all"  # 数据目录
-    # data_dir = "filtered_data/data3"  # 数据目录
+    data_dir = "filtered_data/eval_paths/path1"  # 数据目录
+    data_dir = "filtered_data/data2_all"  # 数据目录
+    data_dir = "filtered_data/data4"  # 数据目录
+    # data_dir = "filtered_data/test3/s3"  # 数据目录
 
 
-    # checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250529_115450.pth"  # 模型权重路径
+    checkpoint_path = get_last_checkpoint()
+    # checkpoint_path = "checkpoints/model_final_20250529_115450.pth"  # 模型权重路径
     
 
     test_model(checkpoint_path, 

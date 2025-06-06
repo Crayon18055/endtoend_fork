@@ -23,6 +23,6 @@ def generate_label_file(image_dir, output_txt):
             txt_file.write(line + '\n')
 
 # 示例使用
-image_directory = "filtered_data/data3/images"  # 替换为图片目录路径
-output_file = "filtered_data/data3/lable.txt"   # 替换为输出txt文件路径
+image_directory = "filtered_data/test3/s3/images"  # 替换为图片目录路径
+output_file = "filtered_data/test3/s3/lable.txt"   # 替换为输出txt文件路径
 generate_label_file(image_directory, output_file)
