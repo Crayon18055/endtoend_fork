@@ -29,13 +29,13 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
     model.eval()
 
     # # 随机获取图片和对应数据
-    # selected_images, selected_rows = get_data_from_dir(data_dir, num_samples=8, max_samples=max_samples)
+    selected_images, selected_rows = get_data_from_dir(data_dir, num_samples=8, max_samples=max_samples)
     # 如需要一张图片多次显示，可以取消下面的注释
-    selected_images, selected_rows = get_data_from_dir(data_dir, 1, max_samples)
-    print("selected_images: ", selected_images)
-    selected_images = ["filtered_data/data2_all/images/1161842659393.jpg"]
-    selected_images = selected_images * 8
-    selected_rows = pd.concat([selected_rows] * 8, ignore_index=True)
+    # selected_images, selected_rows = get_data_from_dir(data_dir, 1, max_samples)
+    # print("selected_images: ", selected_images)
+    # selected_images = ["filtered_data/data2_all/images/1161842659393.jpg"]
+    # selected_images = selected_images * 8
+    # selected_rows = pd.concat([selected_rows] * 8, ignore_index=True)
 
     # 初始化窗口
     fig, axes = plt.subplots(2, 4, figsize=(16, 8))  # 用于显示叠加图像
@@ -52,8 +52,8 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
         print("src: ", src)
 
         trg_vector = row[[4, 5]].values.astype(float)
-        trg_vector[0] = 0.948553
-        trg_vector[1] = -0.316617
+        # trg_vector[0] = 0.948553
+        # trg_vector[1] = -0.316617
 
         # 50% 概率翻转图像和 trg
         # if random.random() < 0.5:
