@@ -56,10 +56,10 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
         # trg_vector[1] = -0.316617
 
         # 50% 概率翻转图像和 trg
-        # if random.random() < 0.5:
-        #     src = F.hflip(src)  # 水平翻转图像
-        #     trg_vector[1] = -trg_vector[1]  # 翻转 trg 的 y 坐标
-        #     row[3] = -row[3]  # 翻转 row 的 y 坐标
+        if random.random() < 0.5:
+            src = F.hflip(src)  # 水平翻转图像
+            trg_vector[1] = -trg_vector[1]  # 翻转 trg 的 y 坐标
+            row[3] = -row[3]  # 翻转 row 的 y 坐标
 
         # 根据数据集设置归一化的trg
         norm = (trg_vector[0]**2 + trg_vector[1]**2)**0.5
