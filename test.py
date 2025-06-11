@@ -49,7 +49,7 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
         # 加载图片
         print("processing image: ", image_path)
         src = load_image(image_path).to(device, dtype=torch.float32)
-        print("src: ", src)
+        # print("src: ", src)
 
         trg_vector = row[[4, 5]].values.astype(float)
         # trg_vector[0] = 0.948553
@@ -117,14 +117,15 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
 
 if __name__ == "__main__":
     # 配置参数
-    data_dir = "filtered_data/eval_paths/path1"  # 数据目录
+    # data_dir = "filtered_data/eval_paths/path3"  # 数据目录
     data_dir = "filtered_data/data2_all"  # 数据目录
-    data_dir = "filtered_data/data4"  # 数据目录
+    # data_dir = "filtered_data/data4"  # 数据目录
     # data_dir = "filtered_data/test3/s3"  # 数据目录
 
 
     checkpoint_path = get_last_checkpoint()
-    # checkpoint_path = "checkpoints/model_final_20250529_115450.pth"  # 模型权重路径
+    checkpoint_path = "checkpoints/model_final_20250605_160618.pth"  # 模型权重路径
+    checkpoint_path = "checkpoints/model_final_20250611_105813.pth"  # 模型权重路径
     
 
     test_model(checkpoint_path, 
