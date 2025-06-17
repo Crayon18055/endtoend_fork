@@ -43,8 +43,8 @@ def convert2ONNX(input_num, output_num, model_name, device="cpu", opset_version=
     print(f"Model converted to ONNX and saved as model/model.onnx")
 if __name__ == "__main__":
 
-    # checkpoint_path = "checkpoints/model_final_20250529_115450.pth"  # 模型权重路径
-    checkpoint_path = get_last_checkpoint()
+    checkpoint_path = "checkpoints/model_final_20250611_105920.pth"  # 模型权重路径
+    # checkpoint_path = get_last_checkpoint()
     # 先转换为ONNX格式
     convert2ONNX(
             input_num=2,

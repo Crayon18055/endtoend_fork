@@ -114,18 +114,18 @@ class EmbeddingImage(nn.Module):
             nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.Conv2d(32, 128, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.Conv2d(128, 512, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(512),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
         )  # 输出特征图大小为 [B, 128, 80, 80]
 
         # ---------- Overlap Patch Embedding ----------
         # 使用卷积进一步下采样到 patch_size = 16
         self.proj = nn.Conv2d(
-            in_channels=512,
+            in_channels=128,
             out_channels=self.model_dim,
             kernel_size=3,
             stride=2,
@@ -138,8 +138,7 @@ class EmbeddingImage(nn.Module):
 
     def forward(self, x):
         x = self.stdcnet_stem(x)
-        x = self.proj(x)  # 输出特征图大小为 [B, 768, 40, 40] 
-        # print(f"Output shape after STDCNet and projection: {x.shape}")
+        x = self.proj(x)
         x = x.flatten(2).transpose(1, 2)  
         x = self.norm(x)          # LayerNorm 在特征维度
         x = x + self.pos_embed    # 加入位置编码

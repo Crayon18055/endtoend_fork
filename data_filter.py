@@ -37,7 +37,7 @@ def filter_and_save_data(data_dir, output_dir):
                     continue  # 跳过无效行
 
                 # distance = np.sqrt(row[4]**2 + row[5]**2)
-                if row[2] == 0 and i >100:
+                if row[2] < 0:
                     # print(f"skiping turn around data: {distance}")
                     continue 
 
@@ -116,8 +116,8 @@ def filter_and_save_data(data_dir, output_dir):
 
 # 测试代码
 if __name__ == "__main__":
-    data_dir = "./data4"  # 原始数据目录
-    output_dir = "./filtered_data/data4"  # 保存有效图片的目录
+    data_dir = "./filtered_data/data5_manual_origin"  # 原始数据目录
+    output_dir = "./filtered_data/data5_manual"  # 保存有效图片的目录
 
     filter_and_save_data(data_dir, output_dir)
 

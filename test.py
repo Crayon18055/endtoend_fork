@@ -68,7 +68,8 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
         # 前向推理
         with torch.no_grad():
             output, _, _ = model(src, trg)
-
+        output[0, 0] = output[0, 0] / 2
+        output[0, 1] = output[0, 1] / 5
         # print("output: ", output)
 
         # 获取缓存中的注意力图
@@ -117,15 +118,15 @@ def test_model(checkpoint_path, data_dir, max_samples=256, cuda_device=1):
 
 if __name__ == "__main__":
     # 配置参数
-    # data_dir = "filtered_data/eval_paths/path3"  # 数据目录
-    data_dir = "filtered_data/data2_all"  # 数据目录
+    data_dir = "filtered_data/eval_paths/path5"  # 数据目录
+    # data_dir = "filtered_data/data2_all"  # 数据目录
     # data_dir = "filtered_data/data4"  # 数据目录
-    # data_dir = "filtered_data/test3/s3"  # 数据目录
+    # data_dir = "filtered_data/data2+5"  # 数据目录
 
 
     checkpoint_path = get_last_checkpoint()
-    checkpoint_path = "checkpoints/model_final_20250605_160618.pth"  # 模型权重路径
-    checkpoint_path = "checkpoints/model_final_20250611_105813.pth"  # 模型权重路径
+    # checkpoint_path = "checkpoints/model_final_20250605_160618.pth"  # 模型权重路径
+    # checkpoint_path = "checkpoints/model_final_20250611_105920.pth"  # 模型权重路径
     
 
     test_model(checkpoint_path, 

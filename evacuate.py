@@ -44,6 +44,8 @@ def evaluate_model(checkpoint_path, data_dir, max_samples=None, cuda_device=1):
         
         # 获取目标输出
         target_output = row[[2, 3]].values.astype(float)
+        target_output[0] = 2 * target_output[0]  # 将线速度放大两倍
+        target_output[1] = 5 * target_output[1]
         # 计算评分
         score = calculate_score(output.squeeze().cpu().numpy(), target_output)
         scores.append(score)

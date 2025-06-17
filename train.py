@@ -73,9 +73,11 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
         # 计算线速度和曲率的加权平方和
         weight_v = 1.0  # 线速度的权重
         weight_kappa = 5.0  # 曲率的权重
+        weight_w = 1.0
         score = torch.sqrt(
             weight_v * (v_output - v_target) ** 2 +
-            weight_kappa * norm_kappa_error ** 2
+            weight_kappa * norm_kappa_error ** 2 +
+            weight_w * (w_output - w_target) ** 2
         )
         score = 10 * score
 
@@ -114,7 +116,7 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
             if rank == 0:
                 print(f"=== Epoch {epoch+1} completed. Total Loss: {epoch_loss:.4f}, Time: {epoch_end_time - epoch_start_time:.2f}s ===")
                 # 每10个ep保存一次
-                if (epoch + 1) % 10 == 0:
+                if (epoch + 1) % 5 == 0:
                     save()
                     checkpoint = get_last_checkpoint()
                     eval_score = eval_in_test_paths(checkpoint)
@@ -132,7 +134,7 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
 def main():
 
     # data_dir = "filtered_data/data4"
-    data_dir = "filtered_data/data2_all"
+    data_dir = "filtered_data/data2+5"
 
     # data_dir = "filtered_data2/small_256/train"
 
