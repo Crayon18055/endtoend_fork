@@ -58,10 +58,9 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
         Returns:
             总评分值（float）
         """
-        # output[:, 1] = output[:, 1] * (target_max - target_min) + target_min
         # 提取线速度和角速度
-        v_output, w_output = output[:, 0], output[:, 1]  # 模型输出
-        v_target, w_target = target[:, 0], target[:, 1]  # 数据集参考值
+        v_output, w_output = output[:, 0] / 2, output[:, 1] / 5 # 模型输出
+        v_target, w_target = target[:, 0] / 2, target[:, 1] / 5 # 数据集参考值
 
         # 计算曲率 (kappa = w / v)，并限制线速度非零
         kappa_output = w_output / torch.clamp(v_output, min=1e-6)  # 避免除以零
@@ -72,7 +71,7 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
 
         # 计算线速度和曲率的加权平方和
         weight_v = 1.0  # 线速度的权重
-        weight_kappa = 5.0  # 曲率的权重
+        weight_kappa = 2.0  # 曲率的权重
         weight_w = 1.0
         score = torch.sqrt(
             weight_v * (v_output - v_target) ** 2 +
@@ -134,7 +133,9 @@ def train_pipeline(rank, world_size, dataset, num_epochs=100, batch_size=16, max
 def main():
 
     # data_dir = "filtered_data/data4"
-    data_dir = "filtered_data/data2+5"
+    # data_dir = "filtered_data/data2+5"
+
+    data_dir = "filtered_data/train_data_filter"
 
     # data_dir = "filtered_data2/small_256/train"
 

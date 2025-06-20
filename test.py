@@ -124,9 +124,9 @@ if __name__ == "__main__":
     # data_dir = "filtered_data/data2+5"  # 数据目录
 
 
-    checkpoint_path = get_last_checkpoint()
+    # checkpoint_path = get_last_checkpoint()
     # checkpoint_path = "checkpoints/model_final_20250605_160618.pth"  # 模型权重路径
-    # checkpoint_path = "checkpoints/model_final_20250611_105920.pth"  # 模型权重路径
+    checkpoint_path = "checkpoints/model_final_20250617_123200.pth"  # 模型权重路径
     
 
     test_model(checkpoint_path, 

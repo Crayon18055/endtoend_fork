@@ -116,10 +116,15 @@ def filter_and_save_data(data_dir, output_dir):
 
 # 测试代码
 if __name__ == "__main__":
-    data_dir = "./filtered_data/data5_manual_origin"  # 原始数据目录
-    output_dir = "./filtered_data/data5_manual"  # 保存有效图片的目录
+    # data_dir = "./filtered_data/data5_manual_origin"  # 原始数据目录
+    # output_dir = "./filtered_data/data5_manual"  # 保存有效图片的目录
 
-    filter_and_save_data(data_dir, output_dir)
+    # filter_and_save_data(data_dir, output_dir)
 
     # data_dir = "./filtered_data3"
     # splitDataSet(data_dir)
+
+    data_dir = "./isaac_data/train_data"  # 原始数据目录
+    output_dir = "./filtered_data/train_data_filter"  # 保存有效图片的目录
+
+    filter_and_save_data(data_dir, output_dir)

@@ -122,20 +122,6 @@ transform = transforms.Compose([
     transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.0),  # 调整亮度、对比度、饱和度和色调
     transforms.ToTensor(),
 ])
-def load_cv_image(image):
-    # image = Image.open(image_path).convert("RGB")
-    # 打印像素值
-    # 按像素位置打印 RGB 值
-    # image = image.resize((320, 320))
-    # pixel_values = list(image.getdata())  # 获取图像的所有像素值
-    # width, height = image.size
-    # print("Pixel values by position:")
-    # for y in range(100, 111):
-    #     for x in range(100, 111):
-    #         pixel = pixel_values[y * width + x]  # 根据位置计算像素索引
-    #         print(f"Position ({y}, {x}): {pixel}")
-    image = transform(image)
-    return image.unsqueeze(0)  # 添加 batch 维度
 
 def load_image(image_path):
     image = Image.open(image_path).convert("RGB")

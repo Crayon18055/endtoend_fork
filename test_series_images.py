@@ -17,7 +17,8 @@ import random
 import cv2
 import glob
 from collections import deque
-
+import math
+from scipy.interpolate import interp1d
 class TestSingleImage:
     def __init__(self, checkpoint_path, max_samples=256, cuda_device=0):
         self.checkpoint_path = checkpoint_path
@@ -33,6 +34,12 @@ class TestSingleImage:
         # 初始化速度数据缓冲区
         self.linear_velocity_buffer = deque(maxlen=50)  # 存储最近50帧的线速度
         self.angular_velocity_buffer = deque(maxlen=50)  # 存储最近50帧的角速度
+        # 数据点
+        x = [0, 1.3, 2.3, 3.3, 4.3, 5.3]
+        y = [0, 134, 194, 228, 255, 273]
+
+        # 创建插值函数（使用三次样条插值）
+        self.interp_func = interp1d(x, y, kind='cubic')
     def draw_velocity_curve(self, image, linear_vel, angular_vel, Color):
         center_x = image.shape[1] // 2 - 15
         center_y = image.shape[0] // 2 - 50
@@ -113,16 +120,6 @@ class TestSingleImage:
         # 可选：叠加透明度
         cv2.addWeighted(overlay, 0.6, image, 0.4, 0, image)
 
-        # # 添加速度文本背景和内容
-        # alpha = 0.7
-        # text_bg = np.zeros((80, 300, 3), dtype=np.uint8)
-        # image[10:90, 10:310] = cv2.addWeighted(image[10:90, 10:310], 1 - alpha, text_bg, alpha, 0)
-
-        # vel_text = f"Linear Velocity: {linear_vel:.2f} m/s"
-        # ang_text = f"Angular Velocity: {angular_vel:.2f} rad/s"
-        # cv2.putText(image, vel_text, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        # cv2.putText(image, ang_text, (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-
         return image
 
 
@@ -138,6 +135,8 @@ class TestSingleImage:
 
         # 归一化目标向量
         norm = (trg_vector[0]**2 + trg_vector[1]**2)**0.5
+        reloc = [trg_vector[0] - 1 , trg_vector[1]]
+        reloc_norm = (reloc[0]**2 + reloc[1]**2)**0.5
         trg_vector = trg_vector / norm
 
         # 转换为张量
@@ -181,6 +180,7 @@ class TestSingleImage:
         image_np = cv2.imread(image_path)
         image_np = cv2.rotate(image_np, cv2.ROTATE_180)
         image_np = cv2.resize(image_np, (640, 640))
+
         
         # 创建热力图
         attention_heatmap = cv2.applyColorMap(
@@ -206,6 +206,35 @@ class TestSingleImage:
         overlay = self.draw_velocity_curve(overlay, linear_vel, angular_vel, "green")
         overlay = self.draw_velocity_curve(overlay, vx_ref, vw_ref, "blue")
         
+        # 绘制目标方向箭头
+        center_x, center_y = image_np.shape[1] // 2, image_np.shape[0] // 2
+        center_x = center_x - 15
+        if norm > 2.9:
+            arrow_length = self.interp_func(reloc_norm)
+            theta = math.atan2(reloc[1] , reloc[0])
+            end_x = int(center_y - math.cos(theta) * arrow_length)  # 注意 y 轴方向是向下的
+            end_y = int(center_x - math.sin(theta) * arrow_length)
+            offset = 0.3
+            theta_l = theta + offset
+            theta_r = theta - offset
+            # 在箭头终点绘制一个小圆点
+            endr_x = int(center_y - math.cos(theta_r) * arrow_length)  # 注意 y 轴方向是向下的
+            endr_y = int(center_x - math.sin(theta_r) * arrow_length)
+            endl_x = int(center_y - math.cos(theta_l) * arrow_length)  # 注意 y 轴方向是向下的
+            endl_y = int(center_x - math.sin(theta_l) * arrow_length)
+            # 定义箭头的三角形顶点
+            arrow_points = np.array([[end_y, end_x], [endl_y, endl_x], [endr_y, endr_x]], dtype=np.int32)
+            cv2.fillPoly(overlay, [arrow_points], (50, 255, 255))  # 黄色箭头
+        else:
+            arrow_length = self.interp_func(reloc_norm)
+            theta = math.atan2(reloc[1] , reloc[0])
+            end_x = int(center_x - math.sin(theta) * arrow_length)
+            end_y = int(center_y - math.cos(theta) * arrow_length)  # 注意 y 轴方向是向下的
+            cv2.circle(overlay, (end_x, end_y), 4, (50, 255, 255), -1)
+        loc_center = [center_x, int(center_y + self.interp_func(1))]
+        # 在 loc_center 位置画一个圆环
+        cv2.circle(overlay, tuple(loc_center), int(self.interp_func(1.25)-self.interp_func(0.75)), (0, 255, 255), 3)  # 黄色圆环，半径18，线宽3
+        # cv2.arrowedLine(overlay, (center_x, center_y), (end_y, end_x), (0, 0, 255), 3, tipLength=0.2)
         return overlay
 
     def process_image_folder(self, folder_path, output_folder=None):
@@ -218,40 +247,14 @@ class TestSingleImage:
         """
         # 获取所有图像文件
         selected_images, selected_rows = get_data_from_dir(folder_path, num_samples=None, max_samples=None)
-        # image_files = glob.glob(os.path.join(folder_path, "*.[jp][pn][g]"))
-        # image_files.extend(glob.glob(os.path.join(folder_path, "*.jpg")))
-        # image_files.extend(glob.glob(os.path.join(folder_path, "*.jpeg")))
-        # 按修改时间排序
-        # image_files.sort(key=lambda x: os.path.basename(x))
-        
-        # if not image_files:
-        #     print(f"在文件夹 {folder_path} 中没有找到图像文件")
-        #     return
-            
-        # 创建输出文件夹
-        # if output_folder:
-        #     os.makedirs(output_folder, exist_ok=True)
             
         for i, (image_path, row) in enumerate(zip(selected_images, selected_rows.iterrows())):
             _, row = row
-            # 读取图像
-            # frame = cv2.imread(image_path)
-            # if frame is None:
-            #     print(f"无法读取图像: {image_path}")
-            #     continue
-                
-            # 处理图像
-            
             processed_frame = self.process_frame(image_path,row)
             
             # 显示结果
             cv2.imshow('Image Processing', processed_frame)
             
-            # # 保存结果
-            # if output_folder:
-            #     output_path = os.path.join(output_folder, f"processed_{os.path.basename(image_path)}")
-            #     cv2.imwrite(output_path, processed_frame)
-            #     print(f"已保存处理结果到: {output_path}")
             
             # 等待按键
             key = cv2.waitKey(100)
@@ -286,7 +289,7 @@ class TestSingleImage:
             cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    # checkpoint_path = "checkpoints/model_final_20250529_115450.pth"  # 模型权重路径
+    # checkpoint_path = "checkpoints/model_final_20250617_123200.pth"  # 模型权重路径
     checkpoint_path = get_last_checkpoint()
     
     test_model = TestSingleImage(checkpoint_path, 
@@ -299,7 +302,7 @@ if __name__ == "__main__":
     if mode == "1":
         test_model.testSingleImage()
     elif mode == "2":
-        folder_path = r"filtered_data/eval_paths/path5"  # 输入图像文件夹路径
+        folder_path = r"filtered_data/eval_paths/path3"  # 输入图像文件夹路径
         # folder_path = r"filtered_data/data2+5"  # 输入图像文件夹路径
         # folder_path = r"filtered_data/data4"  # 输入图像文件夹路径
         # folder_path = r"filtered_data/data5_manual"  # 输入图像文件夹路径

@@ -70,7 +70,10 @@ def calculate_score(output, target):
     # 提取线速度和角速度
     v_output, w_output = output  # 模型输出
     v_target, w_target = target  # 数据集参考值
-
+    v_output = v_output / 2
+    v_target = v_target / 2
+    w_output = w_output / 5
+    w_target = w_target / 5
     # 计算曲率 (kappa = w / v)，并限制线速度非零
     kappa_output = w_output / max(v_output, 1e-6)  # 避免除以零
     kappa_target = w_target / max(v_target, 1e-6)
@@ -82,11 +85,13 @@ def calculate_score(output, target):
 
     # 计算线速度和曲率的加权平方和
     weight_v = 1.0  # 线速度的权重
-    weight_kappa = 5.0  # 曲率的权重
+    weight_kappa = 2.0  # 曲率的权重
+    weight_vw = 1.0
 
     score = np.sqrt(
         weight_v * (v_output - v_target) ** 2 +
-        weight_kappa * norm_kappa_error ** 2
+        weight_kappa * norm_kappa_error ** 2 +
+        weight_vw * (w_output - w_target) ** 2
     )
 
     return score
